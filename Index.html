@@ -1,0 +1,2401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UFLI Phonics Adventure: Seek, Circle &amp; Read</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Fonts: Fredoka for kid-friendly headings, Nunito for clear reading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f9ff;
+            user-select: none;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.08); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float {
+            animation: floatSlow 3s ease-in-out infinite;
+        }
+        #drawingCanvas {
+            touch-action: none;
+            cursor: crosshair;
+        }
+        @media print {
+            body { background: #ffffff !important; color: #000000 !important; }
+            .no-print { display: none !important; }
+            #printWorksheet { display: block !important; }
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e0f2fe;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7dd3fc;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Top Navigation & Lesson Switcher Header -->
+    <header class="no-print bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2.5">
+                <div class="bg-white/20 p-2 rounded-2xl backdrop-blur-sm shadow-inner">
+                    <span class="text-2xl">🦉</span>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <!-- Lesson Selector Dropdown -->
+                        <select id="lessonSelect" onchange="switchLesson(this.value)" class="bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm cursor-pointer focus:outline-none">
+                            <!-- Populated dynamically with presets + custom lessons -->
+                        </select>
+                        <button onclick="openCustomLessonModal()" class="bg-white/20 hover:bg-white/30 text-white text-xs font-extrabold px-2.5 py-1 rounded-full border border-white/30 transition flex items-center gap-1" title="Create or Load Any Past or Future UFLI Lesson">
+                            <span>➕</span>
+                            <span>Any Lesson</span>
+                        </button>
+                    </div>
+                    <h1 id="headerLessonTitle" class="text-base sm:text-xl md:text-2xl font-bold tracking-tight drop-shadow-sm mt-0.5">
+                        VCe Review &amp; Exceptions
+                    </h1>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <!-- Student Picker Button -->
+                <button onclick="openStudentPickerModal()" class="bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-emerald-950 font-extrabold px-3 py-2 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-sm border-b-2 border-emerald-600" title="Randomly pick a student to come to the board">
+                    <span>🎯</span>
+                    <span class="hidden md:inline">Pick Student</span>
+                </button>
+
+                <!-- Print Worksheet Button -->
+                <button onclick="prepareAndPrintWorksheet()" class="bg-white/15 hover:bg-white/25 active:scale-95 text-white font-bold px-3 py-2 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1.5 border border-white/25 shadow-sm" title="Print current picture, word list, and story for independent desk work">
+                    <span>🖨️</span>
+                    <span class="hidden lg:inline">Print Sheet</span>
+                </button>
+
+                <button id="apiKeyBtn" onclick="openApiKeyModal()" class="bg-white/15 hover:bg-white/25 active:scale-95 text-white font-bold px-2.5 py-2 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1 border border-white/25 shadow-sm" title="Set Gemini API Key for downloaded offline use">
+                    <span>🔑</span>
+                    <span class="hidden xl:inline">API Key</span>
+                </button>
+
+                <button id="toggleGuideBtn" onclick="togglePhonicsGuide()" class="bg-white/15 hover:bg-white/25 active:scale-95 text-white font-bold px-3 py-2 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1.5 border border-white/25 shadow-sm">
+                    <span>💡</span>
+                    <span class="hidden sm:inline">Rules</span>
+                </button>
+
+                <button id="redoAllBtn" onclick="handleRedo()" class="bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 font-extrabold px-3.5 sm:px-4 py-2 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-md border-b-4 border-amber-600">
+                    <svg id="redoIcon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Redo</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Compact Smartboard Activity Tab Bar (Zero Scrolling!) -->
+        <div class="bg-indigo-950/40 border-t border-white/15 px-4 py-2">
+            <div class="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+                <button id="tabBtn-hunt" onclick="switchActivityTab('hunt')" class="tab-btn px-4 py-2 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition whitespace-nowrap bg-white text-indigo-950 shadow-sm">
+                    <span>🔍</span>
+                    <span>1. Seek &amp; Circle + Sound Boxes</span>
+                </button>
+                <button id="tabBtn-story" onclick="switchActivityTab('story')" class="tab-btn px-4 py-2 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition whitespace-nowrap bg-white/15 hover:bg-white/25 text-white">
+                    <span>📖</span>
+                    <span>2. Story, Quiz &amp; Sentence Scramble</span>
+                </button>
+                <button id="tabBtn-games" onclick="switchActivityTab('games')" class="tab-btn px-4 py-2 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition whitespace-nowrap bg-white/15 hover:bg-white/25 text-white">
+                    <span>🎮</span>
+                    <span>3. Spinner, Word Sort &amp; Showdown</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dynamic Collapsible Phonics Rule Banner -->
+        <div id="phonicsGuidePanel" class="hidden bg-indigo-900/95 border-t border-indigo-400/30 text-white px-4 py-3.5 transition-all">
+            <div id="phonicsGuideContent" class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Dynamically filled for the active UFLI lesson -->
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast / Message Banner -->
+    <div id="toastBanner" class="no-print fixed bottom-5 right-5 z-50 hidden max-w-sm bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border-2 border-sky-400 flex items-center gap-3 animate-pop">
+        <span id="toastIcon" class="text-2xl">🎉</span>
+        <p id="toastText" class="font-bold text-sm"></p>
+    </div>
+
+    <!-- Main Tabbed Smartboard Workspace -->
+    <main class="no-print flex-1 max-w-7xl w-full mx-auto px-4 py-4 flex flex-col gap-4">
+        
+        <!-- ===================================================================== -->
+        <!-- TAB 1: SEEK & CIRCLE PICTURE HUNT + ELKONIN SOUND BOXES               -->
+        <!-- ===================================================================== -->
+        <section id="tabPanel-hunt" class="activity-panel bg-white rounded-3xl shadow-md border-2 border-sky-100 p-4 sm:p-5 flex flex-col gap-3.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-indigo-900 flex items-center gap-2">
+                        <span>🔍</span> Seek &amp; Circle Picture Hunt
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-600 font-semibold">
+                        Circle items on the board (<span class="text-blue-600 font-extrabold">Blue</span> = Group A, <span class="text-red-600 font-extrabold">Red</span> = Group B) and tap a word to map its Sound Boxes!
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                    <button onclick="setPenColor('#ef4444', this)" class="color-btn w-7 h-7 rounded-full bg-red-500 ring-2 ring-offset-2 ring-red-500 transition" title="Red Marker (Group B / Rule Breakers)"></button>
+                    <button onclick="setPenColor('#2563eb', this)" class="color-btn w-7 h-7 rounded-full bg-blue-600 hover:scale-110 transition" title="Blue Marker (Group A / Pattern 1)"></button>
+                    <button onclick="setPenColor('#16a34a', this)" class="color-btn w-7 h-7 rounded-full bg-green-600 hover:scale-110 transition" title="Green Marker"></button>
+                    <button onclick="setPenColor('#9333ea', this)" class="color-btn w-7 h-7 rounded-full bg-purple-600 hover:scale-110 transition" title="Purple Marker"></button>
+                    <div class="w-px h-5 bg-slate-300 mx-1"></div>
+                    <button onclick="undoLastCircle()" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 shadow-sm flex items-center gap-1" title="Undo last circle">
+                        ↩️ Undo
+                    </button>
+                    <button onclick="clearCanvas()" class="px-2.5 py-1.5 bg-white hover:bg-rose-50 active:scale-95 text-rose-600 font-bold text-xs rounded-xl border border-slate-300 shadow-sm flex items-center gap-1" title="Clear all circles">
+                        🧹 Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Side-by-Side Picture + Word Checklist & Elkonin Sound Boxes -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                <!-- Interactive Picture + Drawing Canvas Container (Left 7 cols) -->
+                <div class="lg:col-span-7 flex flex-col">
+                    <div id="canvasWrapper" class="relative w-full aspect-[4/3] max-h-[540px] bg-sky-50 rounded-2xl overflow-hidden border-4 border-sky-200 shadow-inner flex items-center justify-center">
+                        
+                        <div id="imageLoader" class="absolute inset-0 z-20 bg-sky-50/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                            <div class="text-5xl mb-3 animate-float">🎨</div>
+                            <h3 class="text-xl font-bold text-indigo-900">Painting a New UFLI Scene...</h3>
+                            <p class="text-sm text-slate-600 max-w-xs mt-1">Hiding special lesson words in the picture for students to spot!</p>
+                            <div class="w-48 h-2.5 bg-sky-200 rounded-full overflow-hidden mt-4">
+                                <div class="h-full bg-indigo-600 rounded-full animate-pulse w-3/4"></div>
+                            </div>
+                        </div>
+
+                        <img id="sceneImage" alt="UFLI Lesson Hidden Word Illustration" class="w-full h-full object-cover select-none pointer-events-none hidden" />
+
+                        <canvas id="drawingCanvas" class="absolute inset-0 w-full h-full z-10"></canvas>
+                    </div>
+                </div>
+
+                <!-- Word Checklist + Elkonin Sound Boxes Spotlight (Right 5 cols) -->
+                <div class="lg:col-span-5 flex flex-col justify-between gap-3">
+                    <div class="bg-amber-50/80 border-2 border-amber-200 rounded-2xl p-3.5 flex flex-col">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <span class="text-xs font-extrabold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                                <span>🎯</span> Words in Picture:
+                            </span>
+                            <span id="foundCounter" class="text-xs font-extrabold bg-amber-200 text-amber-950 px-2.5 py-0.5 rounded-full">
+                                0 / 6 Found
+                            </span>
+                        </div>
+                        <div id="wordChecklist" class="grid grid-cols-2 gap-2">
+                            <!-- Dynamically populated word cards -->
+                        </div>
+                    </div>
+
+                    <!-- Interactive Word Decoder + Elkonin Sound Boxes Card -->
+                    <div id="wordInspector" class="bg-gradient-to-br from-indigo-50 to-sky-50 border-2 border-indigo-200 rounded-2xl p-3.5 flex-1 flex flex-col justify-between transition-all">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span id="inspectorBadge" class="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-200 text-indigo-900">
+                                        Sound Box &amp; Word Spotlight
+                                    </span>
+                                    <h3 id="inspectorWord" class="text-2xl font-extrabold text-indigo-950 mt-0.5">
+                                        Tap any word!
+                                    </h3>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button id="toggleMapBtn" onclick="toggleSoundBoxMode()" class="hidden px-2.5 py-1.5 rounded-xl bg-white hover:bg-indigo-100 border border-indigo-300 text-indigo-900 font-extrabold text-xs shadow-sm">
+                                        🧩 Map Sounds
+                                    </button>
+                                    <button id="speakWordBtn" onclick="speakCurrentWord()" class="hidden w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white flex items-center justify-center text-lg shadow-md">
+                                        🔊
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Elkonin Sound Boxes / Syllable Scoops Strip -->
+                            <div id="soundBoxesContainer" class="hidden mt-2.5 p-2.5 bg-white/90 rounded-xl border border-indigo-200 flex flex-wrap items-center justify-center gap-1.5">
+                                <!-- Populated dynamically with grapheme boxes & heart-part markers -->
+                            </div>
+                        </div>
+
+                        <p id="inspectorNote" class="text-xs sm:text-sm text-slate-700 font-semibold mt-2">
+                            Click any word card above to see its Elkonin Sound Boxes, Heart Parts ❤️, and phonics rule!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 2: DECODABLE STORY + COMPREHENSION QUIZ + SENTENCE SCRAMBLE       -->
+        <!-- ===================================================================== -->
+        <section id="tabPanel-story" class="activity-panel hidden flex flex-col gap-4">
+            <!-- Top Card: Decodable Story Reader -->
+            <div class="bg-white rounded-3xl shadow-md border-2 border-indigo-100 p-4 sm:p-5 flex flex-col gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b-2 border-slate-100">
+                    <div>
+                        <span id="storySubBadge" class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider">Decodable Reading</span>
+                        <h2 id="storyTitle" class="text-xl sm:text-2xl font-bold text-slate-900">
+                            Loading Story...
+                        </h2>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="detectiveModeBtn" onclick="toggleStoryDetective()" class="bg-amber-100 hover:bg-amber-200 text-amber-950 font-extrabold px-3 py-1.5 rounded-xl text-xs border border-amber-300 transition flex items-center gap-1.5" title="Hide highlights so students can hunt for target words in the story!">
+                            <span>🕵️</span>
+                            <span id="detectiveBtnText">Story Detective: OFF</span>
+                        </button>
+
+                        <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
+                            <span class="text-xs font-bold text-slate-500 mr-1">Text:</span>
+                            <button onclick="changeFontSize(-2)" class="w-7 h-7 bg-white border border-slate-300 rounded-lg font-bold text-xs hover:bg-slate-100">A-</button>
+                            <button onclick="changeFontSize(2)" class="w-7 h-7 bg-white border border-slate-300 rounded-lg font-bold text-sm hover:bg-slate-100">A+</button>
+                        </div>
+                        <button id="readAloudBtn" onclick="toggleReadAloud()" class="bg-indigo-100 hover:bg-indigo-200 active:scale-95 text-indigo-800 font-bold px-3.5 py-1.5 rounded-2xl text-xs sm:text-sm transition flex items-center gap-1.5 shadow-sm">
+                            <span id="speakerIcon">🔊</span>
+                            <span id="readAloudText">Read to Me</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Story Detective Banner -->
+                <div id="detectiveBanner" class="hidden bg-amber-50 border-2 border-amber-300 rounded-2xl px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-amber-950">
+                        <span>🕵️‍♂️</span>
+                        <span><strong>Story Detective Mode!</strong> Tap the hidden lesson words inside the story to uncover them!</span>
+                    </div>
+                    <span id="detectiveScore" class="bg-amber-400 text-amber-950 text-xs font-extrabold px-3 py-1 rounded-full">
+                        0 Words Uncovered
+                    </span>
+                </div>
+
+                <div id="storyLoader" class="py-8 flex flex-col items-center justify-center text-center">
+                    <div class="text-4xl mb-2 animate-bounce">📖</div>
+                    <p class="font-bold text-indigo-900">Writing a brand-new decodable story &amp; quiz...</p>
+                </div>
+
+                <div id="storyContainer" class="hidden">
+                    <div id="storyBody" style="font-size: 21px; line-height: 1.85;" class="text-slate-800 font-semibold tracking-wide bg-sky-50/50 p-4 sm:p-5 rounded-2xl border border-sky-100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row inside Story Tab: Comprehension Check (Left) & Sentence Scramble (Right) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Comprehension Questions (6 cols) -->
+                <div class="lg:col-span-6 bg-white rounded-3xl shadow-md border-2 border-sky-100 p-4 sm:p-5 flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-indigo-950 flex items-center gap-2">
+                            <span>🧠</span> Show What You Know (Quiz)
+                        </h3>
+                        <span class="text-xs font-extrabold text-sky-700 bg-sky-100 px-2.5 py-1 rounded-full">Comprehension</span>
+                    </div>
+                    <div id="comprehensionContainer" class="space-y-3">
+                        <!-- Populated dynamically with 2 story questions -->
+                    </div>
+                </div>
+
+                <!-- Scrambled Sentence Builder (6 cols) -->
+                <div class="lg:col-span-6 bg-white rounded-3xl shadow-md border-2 border-amber-100 p-4 sm:p-5 flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-amber-950 flex items-center gap-2">
+                                <span>🧩</span> Sentence Scramble
+                            </h3>
+                            <button onclick="resetSentenceScramble()" class="text-xs font-extrabold bg-amber-100 hover:bg-amber-200 text-amber-950 px-2.5 py-1 rounded-xl">
+                                🔄 Reset Words
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-600 font-semibold mt-0.5">
+                            Tap the scrambled words in order to rebuild a sentence from the story!
+                        </p>
+
+                        <!-- Built Sentence Drop Zone -->
+                        <div id="builtSentenceZone" class="mt-3 min-h-[56px] p-3 rounded-2xl bg-amber-50/70 border-2 border-amber-300 flex flex-wrap gap-2 items-center">
+                            <span class="text-xs font-bold text-amber-700/70">Tap words below to build the sentence...</span>
+                        </div>
+
+                        <!-- Scrambled Word Tiles -->
+                        <div id="scrambledTilesZone" class="mt-3 flex flex-wrap gap-2">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div id="scrambleFeedback" class="text-center text-xs font-extrabold text-slate-500 bg-slate-50 py-2 px-3 rounded-xl border border-slate-200">
+                        Remember: Sentences start with a capital letter and end with punctuation!
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 3: SMARTBOARD GAMES (FLUENCY SPINNER, WORD SORT, MINIMAL PAIRS)   -->
+        <!-- ===================================================================== -->
+        <section id="tabPanel-games" class="activity-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <!-- Game 1: Fluency Spin the Wheel (4 cols) -->
+            <div class="lg:col-span-4 bg-white rounded-3xl shadow-md border-2 border-amber-200 p-4 sm:p-5 flex flex-col items-center justify-between gap-3">
+                <div class="w-full flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-extrabold text-amber-600 uppercase tracking-wider">Board Game 1</span>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>🎡</span> Fluency Spinner
+                        </h2>
+                    </div>
+                    <span id="spinStarsBadge" class="bg-amber-100 text-amber-950 text-xs font-extrabold px-2.5 py-1 rounded-full border border-amber-300">
+                        ⭐ 0 Stars
+                    </span>
+                </div>
+
+                <!-- SVG Wheel + Pointer -->
+                <div class="relative w-56 h-56 sm:w-60 sm:h-60 flex items-center justify-center my-1">
+                    <!-- Top Pointer Triangle -->
+                    <div class="absolute -top-2 z-20 text-2xl drop-shadow">🔻</div>
+                    <svg id="spinnerWheelSvg" viewBox="0 0 200 200" class="w-full h-full drop-shadow-md transition-transform duration-[2200ms] ease-out">
+                        <!-- 6 colored slices drawn dynamically -->
+                    </svg>
+                    <button onclick="spinFluencyWheel()" id="spinWheelBtn" class="absolute w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg border-4 border-white z-10">
+                        SPIN!
+                    </button>
+                </div>
+
+                <div id="spinnerResultBox" class="w-full text-center p-2.5 rounded-2xl bg-amber-50 border border-amber-200">
+                    <p class="text-xs font-bold text-slate-600">Tap <strong>SPIN!</strong> to land on a word to read aloud!</p>
+                </div>
+            </div>
+
+            <!-- Game 2: Two-Bucket Word Sort (4 cols) -->
+            <div class="lg:col-span-4 bg-white rounded-3xl shadow-md border-2 border-purple-100 p-4 sm:p-5 flex flex-col justify-between gap-3">
+                <div>
+                    <div class="flex items-center justify-between gap-1">
+                        <div>
+                            <span class="text-[11px] font-extrabold text-purple-600 uppercase tracking-wider">Board Game 2</span>
+                            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+                                <span>🎲</span> Pattern Sort
+                            </h2>
+                        </div>
+                        <button onclick="initBoardSort()" class="bg-purple-100 hover:bg-purple-200 active:scale-95 text-purple-900 font-bold px-2.5 py-1.5 rounded-xl text-xs transition">
+                            🔀 New Words
+                        </button>
+                    </div>
+
+                    <!-- Word Bank to Sort -->
+                    <div id="sortWordBank" class="mt-2.5 flex flex-wrap gap-1.5 p-2.5 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 min-h-[54px] items-center justify-center">
+                    </div>
+                </div>
+
+                <!-- Two Sorting Buckets -->
+                <div class="grid grid-cols-1 gap-2.5">
+                    <button onclick="placeSortedWord('groupA')" class="text-left p-3 rounded-2xl bg-sky-50 hover:bg-sky-100/80 border-2 border-sky-300 transition flex flex-col gap-1 min-h-[88px]">
+                        <div class="flex items-center justify-between">
+                            <span id="bucketATitle" class="font-extrabold text-sky-950 text-xs sm:text-sm">✨ Pattern A</span>
+                            <span class="text-[10px] font-bold bg-sky-200 text-sky-900 px-2 py-0.5 rounded-full">Drop Here</span>
+                        </div>
+                        <p id="bucketAExamples" class="text-[11px] text-sky-800 font-semibold"></p>
+                        <div id="bucketAItems" class="flex flex-wrap gap-1 mt-0.5"></div>
+                    </button>
+
+                    <button onclick="placeSortedWord('groupB')" class="text-left p-3 rounded-2xl bg-rose-50 hover:bg-rose-100/80 border-2 border-rose-300 transition flex flex-col gap-1 min-h-[88px]">
+                        <div class="flex items-center justify-between">
+                            <span id="bucketBTitle" class="font-extrabold text-rose-950 text-xs sm:text-sm">🚨 Pattern B</span>
+                            <span class="text-[10px] font-bold bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">Drop Here</span>
+                        </div>
+                        <p id="bucketBExamples" class="text-[11px] text-rose-800 font-semibold"></p>
+                        <div id="bucketBItems" class="flex flex-wrap gap-1 mt-0.5"></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game 3: Minimal Pair Showdown (4 cols) -->
+            <div class="lg:col-span-4 bg-white rounded-3xl shadow-md border-2 border-emerald-100 p-4 sm:p-5 flex flex-col justify-between gap-3">
+                <div>
+                    <div class="flex items-center justify-between gap-1">
+                        <div>
+                            <span class="text-[11px] font-extrabold text-emerald-600 uppercase tracking-wider">Board Game 3</span>
+                            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+                                <span>⚡</span> Pair Showdown
+                            </h2>
+                        </div>
+                        <button onclick="nextMinimalPair()" class="bg-emerald-100 hover:bg-emerald-200 active:scale-95 text-emerald-900 font-bold px-2.5 py-1.5 rounded-xl text-xs transition">
+                            Next ➡️
+                        </button>
+                    </div>
+                    <p id="pairPromptText" class="text-xs sm:text-sm text-slate-700 font-bold mt-2.5 bg-emerald-50/80 border border-emerald-200 p-3 rounded-2xl">
+                        Tap the word that matches the clue!
+                    </p>
+                </div>
+
+                <div id="minimalPairCards" class="grid grid-cols-2 gap-2.5 my-auto">
+                    <!-- Two big clickable cards populated dynamically -->
+                </div>
+
+                <div id="pairFeedbackBox" class="text-center text-xs font-extrabold text-slate-500 bg-slate-50 py-2.5 px-3 rounded-xl border border-slate-200">
+                    Have two students race to tap the right card!
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Hidden Printable Worksheet Container (Only shown when printing!) -->
+    <div id="printWorksheet" class="hidden p-8 max-w-4xl mx-auto">
+        <div class="flex items-center justify-between border-b-2 border-black pb-3 mb-4">
+            <div>
+                <h1 id="printLessonHeader" class="text-2xl font-bold">UFLI Lesson Worksheet</h1>
+                <p class="text-sm">Seek, Circle, Decode &amp; Read!</p>
+            </div>
+            <div class="text-right text-sm font-bold">
+                Name: _______________________<br/>
+                Date: _______________________
+            </div>
+        </div>
+        <div class="grid grid-cols-12 gap-4 mb-5 items-start">
+            <div class="col-span-8 border-2 border-black rounded-xl overflow-hidden">
+                <img id="printSceneImg" class="w-full h-auto object-cover" />
+            </div>
+            <div class="col-span-4 border-2 border-black rounded-xl p-3">
+                <h2 class="font-bold text-base border-b border-black pb-1 mb-2">Find &amp; Circle:</h2>
+                <ul id="printWordList" class="space-y-2 text-lg font-bold"></ul>
+            </div>
+        </div>
+        <div class="border-2 border-black rounded-xl p-4">
+            <h2 id="printStoryTitle" class="font-bold text-xl mb-2">Story</h2>
+            <p id="printStoryText" class="text-lg leading-relaxed"></p>
+        </div>
+    </div>
+
+    <!-- Random Student Roster Picker Modal -->
+    <div id="studentPickerModal" class="no-print fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-emerald-400 animate-pop">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-2xl font-extrabold text-emerald-950 flex items-center gap-2">
+                    <span>🎯</span> Board Turn Picker
+                </h2>
+                <button onclick="closeStudentPickerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">✕</button>
+            </div>
+
+            <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 text-center my-3">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Next Student at the Board:</span>
+                <div id="pickedStudentDisplay" class="text-3xl sm:text-4xl font-extrabold text-emerald-950 my-2">
+                    Ready to Spin!
+                </div>
+                <button onclick="pickRandomStudent()" class="mt-2 px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-extrabold text-base shadow-md border-b-4 border-emerald-700">
+                    🎲 Pick Random Student!
+                </button>
+            </div>
+
+            <div class="mt-3">
+                <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                    Class Roster (One name per line or comma-separated):
+                </label>
+                <textarea id="studentRosterInput" rows="3" placeholder="Liam, Emma, Noah, Olivia, Ava, Mason..." class="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none text-sm font-semibold"></textarea>
+                <div class="flex justify-end mt-2">
+                    <button onclick="saveStudentRoster()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-extrabold">
+                        💾 Save Roster
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Celebration Modal -->
+    <div id="celebrationModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border-4 border-amber-400 animate-pop">
+            <div class="text-6xl mb-3">🏆🌟🎉</div>
+            <h2 class="text-3xl font-extrabold text-indigo-900">Super Readers!</h2>
+            <p class="text-slate-600 font-bold mt-2">
+                Your class found and circled all 6 words in the picture!
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 mt-6 justify-center">
+                <button onclick="closeCelebration()" class="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-sm">
+                    Keep Reading &amp; Sorting
+                </button>
+                <button onclick="closeCelebration(); handleRedo();" class="px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-sm shadow-md border-b-4 border-amber-600">
+                    🔄 Play New Scene &amp; Story
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom UFLI Lesson Builder Modal (For Any Past or Future Lesson!) -->
+    <div id="customLessonModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-4 border-amber-300 animate-pop max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-2xl font-extrabold text-indigo-950 flex items-center gap-2">
+                    <span>📚</span> Load Any UFLI Lesson
+                </h2>
+                <button onclick="closeCustomLessonModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">✕</button>
+            </div>
+            <p class="text-sm text-slate-600 font-semibold">
+                Type any UFLI lesson number and phonics skill (past or future—like <strong>Lesson 42: FLSZ Rule</strong>, <strong>Lesson 68: Open Syllables</strong>, or <strong>Lesson 84: Vowel Teams ai/ay</strong>) and Gemini will build a complete picture hunt, decodable story, word sort, and minimal pairs!
+            </p>
+
+            <div class="mt-4 space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-extrabold uppercase tracking-wider text-indigo-900 mb-1">Lesson #</label>
+                        <input id="customLessonNum" type="text" placeholder="e.g. 72" class="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none font-bold text-sm" />
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-extrabold uppercase tracking-wider text-indigo-900 mb-1">Phonics Concept / Skill</label>
+                        <input id="customLessonSkill" type="text" placeholder="e.g. Long A (ai / ay) or Ending Blends" class="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none font-bold text-sm" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-extrabold uppercase tracking-wider text-indigo-900 mb-1">
+                        Optional Focus Words (comma-separated)
+                    </label>
+                    <input id="customLessonWords" type="text" placeholder="e.g. train, snail, rain, hay, tray, clay" class="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none font-semibold text-sm" />
+                    <p class="text-[11px] text-slate-500 mt-1">Leave blank to let Gemini automatically choose the best pictureable UFLI words for that lesson!</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 mt-6">
+                <button onclick="closeCustomLessonModal()" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-100">
+                    Cancel
+                </button>
+                <button id="buildCustomLessonBtn" onclick="buildCustomLessonWithGemini()" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-sm shadow-md border-b-4 border-amber-600 flex items-center gap-2">
+                    <span>✨</span>
+                    <span>Generate Lesson Pack</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Modal for Downloaded / Standalone HTML Usage -->
+    <div id="apiKeyModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-indigo-200 animate-pop">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-2xl font-extrabold text-indigo-950 flex items-center gap-2">
+                    <span>🔑</span> Gemini API Key
+                </h2>
+                <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">✕</button>
+            </div>
+            <p class="text-sm text-slate-600 font-semibold leading-relaxed">
+                Inside this preview window, images and stories generate automatically. If you <strong>download this HTML file</strong> to use on your own computer, paste a free Google AI Studio API key below so <strong>Redo</strong> and <strong>Any Lesson</strong> can generate new content!
+            </p>
+            <div class="mt-4">
+                <label for="apiKeyInput" class="block text-xs font-extrabold uppercase tracking-wider text-indigo-900 mb-1">
+                    Your Gemini API Key
+                </label>
+                <input id="apiKeyInput" type="password" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none font-mono text-sm text-slate-800" />
+            </div>
+            <div class="flex items-center justify-end gap-2.5 mt-5">
+                <button onclick="clearSavedApiKey()" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-rose-600 hover:bg-rose-50">
+                    Clear Key
+                </button>
+                <button onclick="saveApiKey()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-md">
+                    Save &amp; Generate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // GLOBAL STATE & UFLI LESSON DATA (LESSONS 62–75 + CUSTOM)
+        // =========================================================================
+        const SCENE_THEMES = [
+            "a sunny backyard treehouse adventure with a garden path and picnic blanket",
+            "a cozy classroom reading corner with wooden bookshelves, rugs, and sunny windows",
+            "a friendly neighborhood park with a pond, wooden bridge, and flowerbeds",
+            "a cheerful kitchen and bakery table with warm treats and sunny windows",
+            "a playful campsite in a forest clearing with a tent, campfire, and backpack"
+        ];
+
+        const UFLI_LESSONS = {
+            "lesson-62": {
+                id: "lesson-62",
+                badge: "Lesson 62",
+                title: "VCe Review & Exceptions (-ive, -ove, -ome, -one)",
+                groupALabel: "✨ Regular Magic E (VCe)",
+                groupADesc: "The silent e jumps over one consonant to make the first vowel say its long name!",
+                groupAExamples: "home, page, late, state, snake, cake, kite, bone",
+                groupBLabel: "🚨 VCe Rule Breakers (Exceptions)",
+                groupBDesc: "These words end in silent e, but the vowel stays short or makes a schwa sound (e.g., English words never end in v!).",
+                groupBExamples: "have, done, live, none, some, glove, dove, give, love",
+                groupAPool: ["home", "page", "late", "state", "snake", "cake"],
+                groupBPool: ["have", "done", "live", "none", "some", "glove"],
+                words: {
+                    home: { group: "A", badge: "Regular VCe", rule: "Long O! Silent e makes 'o' say /ō/.", visual: "a cozy little house with a red roof and chimney" },
+                    page: { group: "A", badge: "Regular VCe", rule: "Long A + soft g! Silent e makes 'a' say /ā/ and 'g' say /j/.", visual: "an open storybook showing a colorful illustrated page" },
+                    late: { group: "A", badge: "Regular VCe", rule: "Long A! Silent e makes 'a' say /ā/.", visual: "a round wall clock showing 9:00 while a kid hurries with a backpack" },
+                    state: { group: "A", badge: "Regular VCe", rule: "Long A! Blend 'st' + long 'a' + silent e.", visual: "a colorful map poster of a state with stars on it" },
+                    snake: { group: "A", badge: "Regular VCe", rule: "Long A! Silent e makes 'a' say /ā/.", visual: "a friendly green striped snake curled on a rock" },
+                    cake: { group: "A", badge: "Regular VCe", rule: "Long A! Silent e makes 'a' say /ā/.", visual: "a birthday cake with colorful frosting and candles" },
+                    have: { group: "B", badge: "VCe Exception ❤️", rule: "Short A (/ă/)! English words never end in 'v', so silent e is just a helper.", visual: "a happy child holding a shiny red apple in their hand" },
+                    done: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! Looks like 'bone', rhymes with 'sun'.", visual: "an empty clean dinner plate with a fork and spoon beside it" },
+                    live: { group: "B", badge: "VCe Exception ❤️", rule: "Short I (/ĭ/)! Silent e keeps 'v' from ending the word.", visual: "a cute little bird perched inside its cozy nest" },
+                    none: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! Rhymes with 'done' and 'sun'.", visual: "an empty glass cookie jar with zero cookies left inside" },
+                    some: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! Looks like 'home', rhymes with 'come'.", visual: "a small bowl holding a few bright strawberries" },
+                    glove: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! Silent e keeps 'v' from being the last letter.", visual: "a bright red winter mitten or baseball glove" },
+                    dove: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! A white bird—rhymes with 'love'.", visual: "a peaceful white dove perched on a branch" },
+                    give: { group: "B", badge: "VCe Exception ❤️", rule: "Short I (/ĭ/)! English words never end in 'v'.", visual: "a wrapped gift box with a yellow ribbon bow" },
+                    love: { group: "B", badge: "VCe Exception ❤️", rule: "Short U sound (/ŭ/)! Silent e protects the ending 'v'.", visual: "a big red heart pillow" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word is a VCe Rule Breaker that rhymes with 'sun'?", wordA: "bone", wordB: "done", answer: "B", explanation: "'Done' is a VCe exception with a short /ŭ/ sound!" },
+                    { prompt: "Which word has a REGULAR Long O Magic E sound?", wordA: "home", wordB: "some", answer: "A", explanation: "'Home' follows the Magic E rule (/ō/), while 'some' is a rule breaker!" },
+                    { prompt: "Which word is a VCe Exception because English words don't end in 'v'?", wordA: "wave", wordB: "have", answer: "B", explanation: "'Have' keeps a short /ă/ sound—silent e just keeps 'v' from ending the word!" },
+                    { prompt: "Which word has a REGULAR Long A Magic E sound?", wordA: "page", wordB: "glove", answer: "A", explanation: "'Page' has a regular long /ā/ sound before soft g!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Late to Get Home",
+                        text: "Jake and Kate did not want to be late to get home. They had to finish the last page of a map of their state. Jake put on his red glove and gave Kate some grapes. When their work was done, none of the snacks were left! A cute green snake slid past a rock as they ran home."
+                    }
+                ]
+            },
+            "lesson-63": {
+                id: "lesson-63",
+                badge: "Lesson 63",
+                title: "Suffix -es (Plural & Action Words)",
+                groupALabel: "✨ Add -es after s, x, z, ch, sh",
+                groupADesc: "When a base word ends in s, x, z, ch, or sh, add -es (which adds a new syllable /ĭz/).",
+                groupAExamples: "boxes, foxes, dishes, benches, peaches, brushes",
+                groupBLabel: "🔹 Base Words (Singular)",
+                groupBDesc: "The root word before adding the suffix -es.",
+                groupBExamples: "box, fox, dish, bench, peach, brush",
+                groupAPool: ["boxes", "foxes", "dishes", "benches", "peaches", "brushes"],
+                groupBPool: ["box", "fox", "dish", "bench", "peach", "brush"],
+                words: {
+                    boxes: { group: "A", badge: "Suffix -es", rule: "Base 'box' ends in x, so add -es (box-es).", visual: "three brown cardboard boxes stacked together" },
+                    foxes: { group: "A", badge: "Suffix -es", rule: "Base 'fox' ends in x, so add -es (fox-es).", visual: "two cute orange foxes sitting in the grass" },
+                    dishes: { group: "A", badge: "Suffix -es", rule: "Base 'dish' ends in sh, so add -es (dish-es).", visual: "a stack of colorful plates and bowls" },
+                    benches: { group: "A", badge: "Suffix -es", rule: "Base 'bench' ends in ch, so add -es (bench-es).", visual: "two wooden park benches side by side" },
+                    peaches: { group: "A", badge: "Suffix -es", rule: "Base 'peach' ends in ch, so add -es (peach-es).", visual: "a basket full of ripe fuzzy peaches" },
+                    brushes: { group: "A", badge: "Suffix -es", rule: "Base 'brush' ends in sh, so add -es (brush-es).", visual: "a cup holding three paintbrushes" },
+                    box: { group: "B", badge: "Base Word", rule: "Singular noun ending in x.", visual: "a single wooden toy box" },
+                    fox: { group: "B", badge: "Base Word", rule: "Singular noun ending in x.", visual: "one fluffy red fox" },
+                    dish: { group: "B", badge: "Base Word", rule: "Singular noun ending in sh.", visual: "one blue ceramic bowl" },
+                    bench: { group: "B", badge: "Base Word", rule: "Singular noun ending in ch.", visual: "one wooden garden bench" },
+                    peach: { group: "B", badge: "Base Word", rule: "Singular noun ending in ch.", visual: "one sweet orange peach" },
+                    brush: { group: "B", badge: "Base Word", rule: "Singular noun ending in sh.", visual: "one wide paintbrush" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word means MORE THAN ONE and uses suffix -es?", wordA: "fox", wordB: "foxes", answer: "B", explanation: "'Foxes' adds -es because 'fox' ends in x!" },
+                    { prompt: "Which word has TWO syllables because of suffix -es?", wordA: "dishes", wordB: "dish", answer: "A", explanation: "'Dish-es' has two syllables!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Peaches in Boxes",
+                        text: "Two sly foxes peeked from behind the wooden benches. Sam set three big boxes of sweet peaches on the table. Next, he washed all the dishes and put away his paint brushes."
+                    }
+                ]
+            },
+            "lesson-64": {
+                id: "lesson-64",
+                badge: "Lesson 64",
+                title: "Suffix -ed (Past Tense Actions)",
+                groupALabel: "✨ -ed Says /t/ or /d/",
+                groupADesc: "Suffix -ed shows something already happened! After voiceless sounds it says /t/; after voiced sounds it says /d/.",
+                groupAExamples: "jumped, baked, played, splashed, smiled",
+                groupBLabel: "🔔 -ed Says /ĭd/ (Extra Syllable)",
+                groupBDesc: "When a base word ends in t or d, suffix -ed adds a whole extra syllable /ĭd/!",
+                groupBExamples: "planted, painted, landed, rested, melted",
+                groupAPool: ["jumped", "baked", "played", "splashed"],
+                groupBPool: ["planted", "painted", "landed", "melted"],
+                words: {
+                    jumped: { group: "A", badge: "-ed (/t/)", rule: "Base 'jump' + -ed. Sounds like /jumpt/!", visual: "a frog jumping high in the air" },
+                    baked: { group: "A", badge: "-ed (/t/)", rule: "Drop silent e on 'bake' + -ed.", visual: "a tray of freshly baked chocolate chip cookies" },
+                    played: { group: "A", badge: "-ed (/d/)", rule: "Base 'play' + -ed. Sounds like /playd/.", visual: "a puppy playing with a red ball" },
+                    splashed: { group: "A", badge: "-ed (/t/)", rule: "Base 'splash' + -ed.", visual: "a duck splashing water droplets in a puddle" },
+                    planted: { group: "B", badge: "-ed (/ĭd/)", rule: "Base 'plant' ends in t, so -ed adds a syllable: plant-ed!", visual: "a small green sprout planted in a flowerpot" },
+                    painted: { group: "B", badge: "-ed (/ĭd/)", rule: "Base 'paint' ends in t, so -ed adds a syllable: paint-ed!", visual: "a colorful painted rainbow canvas on an easel" },
+                    landed: { group: "B", badge: "-ed (/ĭd/)", rule: "Base 'land' ends in d, so -ed adds a syllable: land-ed!", visual: "a bright yellow butterfly landing on a flower" },
+                    melted: { group: "B", badge: "-ed (/ĭd/)", rule: "Base 'melt' ends in t, so -ed adds a syllable: melt-ed!", visual: "an ice cream cone dripping in the warm sun" }
+                },
+                minimalPairs: [
+                    { prompt: "In which word does -ed add an EXTRA syllable (/ĭd/)?", wordA: "jumped", wordB: "planted", answer: "B", explanation: "'Plant-ed' has 2 syllables because 'plant' ends in t!" },
+                    { prompt: "Which past-tense word ends with a /t/ sound?", wordA: "baked", wordB: "landed", answer: "A", explanation: "'Baked' sounds like /bākt/!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "A Busy Afternoon",
+                        text: "Mia planted seeds in a red pot and painted a bright sun. Her puppy jumped and splashed in the cool water. Later, Mom baked warm treats while a butterfly landed on a leaf."
+                    }
+                ]
+            },
+            "lesson-65": {
+                id: "lesson-65",
+                badge: "Lesson 65",
+                title: "Suffix -ing (Happening Now)",
+                groupALabel: "✨ Base + -ing (No Change)",
+                groupADesc: "Add -ing to a base word ending in two consonants or a vowel team.",
+                groupAExamples: "jumping, fishing, camping, floating, splashing",
+                groupBLabel: "🔄 Drop-e or Double + -ing",
+                groupBDesc: "Drop silent e before -ing (baking) or double the final consonant after a short vowel (running).",
+                groupBExamples: "baking, smiling, running, swimming",
+                groupAPool: ["jumping", "fishing", "camping", "floating"],
+                groupBPool: ["baking", "smiling", "running", "swimming"],
+                words: {
+                    jumping: { group: "A", badge: "Suffix -ing", rule: "Base 'jump' + -ing.", visual: "a child jumping rope" },
+                    fishing: { group: "A", badge: "Suffix -ing", rule: "Base 'fish' + -ing.", visual: "a fishing pole with a bobber in water" },
+                    camping: { group: "A", badge: "Suffix -ing", rule: "Base 'camp' + -ing.", visual: "a pitched camping tent under trees" },
+                    floating: { group: "A", badge: "Suffix -ing", rule: "Base 'float' + -ing.", visual: "a toy sailboat floating on water" },
+                    baking: { group: "B", badge: "Drop-e + -ing", rule: "Drop the silent e on 'bake' before adding -ing!", visual: "a chef hat and mixing bowl with batter" },
+                    smiling: { group: "B", badge: "Drop-e + -ing", rule: "Drop the silent e on 'smile' before adding -ing!", visual: "a big cheerful smiling sun" },
+                    running: { group: "B", badge: "Double + -ing", rule: "Double the 'n' in 'run' before adding -ing!", visual: "a playful dog running fast" },
+                    swimming: { group: "B", badge: "Double + -ing", rule: "Double the 'm' in 'swim' before adding -ing!", visual: "a bright orange fish swimming" }
+                },
+                minimalPairs: [
+                    { prompt: "Which -ing word dropped a silent e from its base word?", wordA: "fishing", wordB: "baking", answer: "B", explanation: "'Bake' dropped its silent e to become 'baking'!" },
+                    { prompt: "Which -ing word doubled its final consonant?", wordA: "running", wordB: "jumping", answer: "A", explanation: "'Run' doubled the 'n' to keep the short u sound!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Camping by the Lake",
+                        text: "We are camping next to a clear blue lake. Dad is fishing while a yellow boat is floating nearby. A happy frog is jumping on a log, and a fish is swimming fast!"
+                    }
+                ]
+            },
+            "lesson-66": {
+                id: "lesson-66",
+                badge: "Lesson 66",
+                title: "Closed & Open Syllables",
+                groupALabel: "🚪 Closed Syllables (Short Vowel)",
+                groupADesc: "A closed syllable ends in a consonant, closing in the vowel so it makes its SHORT sound.",
+                groupAExamples: "tent, frog, drum, lamp, crab",
+                groupBLabel: "👐 Open Syllables (Long Vowel)",
+                groupBDesc: "An open syllable ends in a single vowel, leaving it open to say its LONG name!",
+                groupBExamples: "robot, tiger, tulip, spider, me, go",
+                groupAPool: ["tent", "frog", "drum", "lamp"],
+                groupBPool: ["robot", "tiger", "tulip", "spider"],
+                words: {
+                    tent: { group: "A", badge: "Closed Syllable", rule: "Closed by 'nt'—vowel e is short /ĕ/.", visual: "a colorful triangle camping tent" },
+                    frog: { group: "A", badge: "Closed Syllable", rule: "Closed by 'g'—vowel o is short /ŏ/.", visual: "a cute green frog sitting on a lily pad" },
+                    drum: { group: "A", badge: "Closed Syllable", rule: "Closed by 'm'—vowel u is short /ŭ/.", visual: "a red marching drum with drumsticks" },
+                    lamp: { group: "A", badge: "Closed Syllable", rule: "Closed by 'mp'—vowel a is short /ă/.", visual: "a glowing desk lamp" },
+                    robot: { group: "B", badge: "Open Syllable (ro-)", rule: "First syllable 'ro-' is OPEN, so o says /ō/!", visual: "a friendly silver toy robot" },
+                    tiger: { group: "B", badge: "Open Syllable (ti-)", rule: "First syllable 'ti-' is OPEN, so i says /ī/!", visual: "an orange striped tiger cub" },
+                    tulip: { group: "B", badge: "Open Syllable (tu-)", rule: "First syllable 'tu-' is OPEN, so u says /ū/!", visual: "a bright pink tulip flower" },
+                    spider: { group: "B", badge: "Open Syllable (spi-)", rule: "First syllable 'spi-' is OPEN, so i says /ī/!", visual: "a cute little spider on a web" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word starts with an OPEN syllable (long vowel)?", wordA: "tiger", wordB: "tent", answer: "A", explanation: "'Ti-ger' starts with open syllable 'ti-' (/ī/)!" },
+                    { prompt: "Which word is a CLOSED syllable with a short vowel?", wordA: "robot", wordB: "frog", answer: "B", explanation: "'Frog' ends in a consonant, closing the short /ŏ/!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "The Robot and the Tiger",
+                        text: "A little silver robot sat beside a red tent. A green frog hopped near a pink tulip while a toy tiger played a loud drum!"
+                    }
+                ]
+            },
+            "lesson-67": {
+                id: "lesson-67",
+                badge: "Lesson 67",
+                title: "Two-Syllable Closed / Closed Words",
+                groupALabel: "🐇 Double Consonant Split (VC/CV)",
+                groupADesc: "Divide between twin consonants (rab-bit, muf-fin) so both syllables are closed with short vowels.",
+                groupAExamples: "rabbit, muffin, kitten, puppet",
+                groupBLabel: "🧺 Different Consonants Split (VC/CV)",
+                groupBDesc: "Divide between two different middle consonants (bas-ket, pic-nic, pump-kin).",
+                groupBExamples: "basket, picnic, pumpkin, magnet",
+                groupAPool: ["rabbit", "muffin", "kitten", "puppet"],
+                groupBPool: ["basket", "picnic", "pumpkin", "magnet"],
+                words: {
+                    rabbit: { group: "A", badge: "Closed/Closed (rab-bit)", rule: "Split between twin b's: rab-bit.", visual: "a fluffy white rabbit with long ears" },
+                    muffin: { group: "A", badge: "Closed/Closed (muf-fin)", rule: "Split between twin f's: muf-fin.", visual: "a blueberry muffin in a paper cup" },
+                    kitten: { group: "A", badge: "Closed/Closed (kit-ten)", rule: "Split between twin t's: kit-ten.", visual: "a tiny striped kitten playing" },
+                    puppet: { group: "A", badge: "Closed/Closed (pup-pet)", rule: "Split between twin p's: pup-pet.", visual: "a colorful sock hand puppet" },
+                    basket: { group: "B", badge: "Closed/Closed (bas-ket)", rule: "Split between s and k: bas-ket.", visual: "a woven wicker picnic basket" },
+                    picnic: { group: "B", badge: "Closed/Closed (pic-nic)", rule: "Split between c and n: pic-nic.", visual: "a checkered picnic blanket with snacks" },
+                    pumpkin: { group: "B", badge: "Closed/Closed (pump-kin)", rule: "Split between mp and k: pump-kin.", visual: "a round orange autumn pumpkin" },
+                    magnet: { group: "B", badge: "Closed/Closed (mag-net)", rule: "Split between g and n: mag-net.", visual: "a red and silver horseshoe magnet" }
+                },
+                minimalPairs: [
+                    { prompt: "Which two-syllable word splits between TWIN consonants?", wordA: "rabbit", wordB: "basket", answer: "A", explanation: "'Rab-bit' splits right between the twin b's!" },
+                    { prompt: "How do we scoop 'picnic' into two closed syllables?", wordA: "pi-cnic", wordB: "pic-nic", answer: "B", explanation: "'Pic-nic' splits between c and n so both vowels stay short!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Picnic with a Rabbit",
+                        text: "We packed a warm muffin and a small pumpkin inside our picnic basket. A fluffy rabbit and a tiny kitten hopped onto the blanket!"
+                    }
+                ]
+            },
+            "lesson-68": {
+                id: "lesson-68",
+                badge: "Lesson 68",
+                title: "Two-Syllable Open / Closed Words (V/CV)",
+                groupALabel: "🐯 Open First Syllable (Long Vowel)",
+                groupADesc: "Divide after the first vowel (ti-ger, ro-bot, mu-sic) so the first syllable is open and long!",
+                groupAExamples: "tiger, robot, music, pilot, acorn",
+                groupBLabel: "🍋 Closed First Syllable Exception (VC/V)",
+                groupBDesc: "Sometimes the consonant stays with the first vowel (lem-on, wag-on, cam-el) keeping it short!",
+                groupBExamples: "lemon, wagon, camel, cabin",
+                groupAPool: ["tiger", "robot", "music", "acorn"],
+                groupBPool: ["lemon", "wagon", "camel", "cabin"],
+                words: {
+                    tiger: { group: "A", badge: "Open/Closed (ti-ger)", rule: "Open first syllable 'ti-' says long /ī/.", visual: "a striped orange tiger" },
+                    robot: { group: "A", badge: "Open/Closed (ro-bot)", rule: "Open first syllable 'ro-' says long /ō/.", visual: "a blue toy robot" },
+                    music: { group: "A", badge: "Open/Closed (mu-sic)", rule: "Open first syllable 'mu-' says long /yū/.", visual: "floating musical notes and a guitar" },
+                    acorn: { group: "A", badge: "Open/Closed (a-corn)", rule: "Open first syllable 'a-' says long /ā/.", visual: "a brown oak acorn with a cap" },
+                    lemon: { group: "B", badge: "VC/V (lem-on)", rule: "Closed first syllable 'lem-' keeps e short /ĕ/.", visual: "a bright yellow lemon" },
+                    wagon: { group: "B", badge: "VC/V (wag-on)", rule: "Closed first syllable 'wag-' keeps a short /ă/.", visual: "a little red toy wagon" },
+                    camel: { group: "B", badge: "VC/V (cam-el)", rule: "Closed first syllable 'cam-' keeps a short /ă/.", visual: "a brown desert camel" },
+                    cabin: { group: "B", badge: "VC/V (cab-in)", rule: "Closed first syllable 'cab-' keeps a short /ă/.", visual: "a cozy wooden log cabin" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word has a LONG vowel in its first syllable?", wordA: "lemon", wordB: "acorn", answer: "B", explanation: "'A-corn' begins with an open long /ā/ syllable!" },
+                    { prompt: "Which word keeps a SHORT vowel in its first syllable?", wordA: "wagon", wordB: "music", answer: "A", explanation: "'Wag-on' closes the first syllable with g!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Music at the Cabin",
+                        text: "A friendly robot pulled a red wagon full of yellow lemons to the log cabin. Inside, a striped tiger listened to happy music and found an acorn."
+                    }
+                ]
+            },
+            "lesson-69": {
+                id: "lesson-69",
+                badge: "Lesson 69",
+                title: "Ending Pattern: tch /ch/",
+                groupALabel: "✨ -tch After 1 Short Vowel",
+                groupADesc: "Use -tch to spell /ch/ right after a single short vowel (catch, witch, patch).",
+                groupAExamples: "witch, patch, pitch, hutch, watch",
+                groupBLabel: "🔹 -ch After Consonants or Vowel Teams",
+                groupBDesc: "Use -ch (without a t) after a consonant or vowel team (bench, peach, torch).",
+                groupBExamples: "bench, peach, torch, lunch",
+                groupAPool: ["witch", "patch", "pitch", "watch"],
+                groupBPool: ["bench", "peach", "torch", "lunch"],
+                words: {
+                    witch: { group: "A", badge: "Ending -tch", rule: "Short i + -tch spells /ch/.", visual: "a friendly cartoon witch hat and broom" },
+                    patch: { group: "A", badge: "Ending -tch", rule: "Short a + -tch spells /ch/.", visual: "a colorful sewn fabric patch on jeans" },
+                    pitch: { group: "A", badge: "Ending -tch", rule: "Short i + -tch spells /ch/.", visual: "a baseball being pitched toward home plate" },
+                    watch: { group: "A", badge: "Ending -tch", rule: "Short /ŏ/ after w + -tch spells /ch/.", visual: "a yellow wristwatch" },
+                    bench: { group: "B", badge: "Ending -ch", rule: "Consonant 'n' comes before /ch/, so use -ch!", visual: "a wooden park bench" },
+                    peach: { group: "B", badge: "Ending -ch", rule: "Vowel team 'ea' comes before /ch/, so use -ch!", visual: "a juicy ripe peach" },
+                    torch: { group: "B", badge: "Ending -ch", rule: "R-controlled 'or' comes before /ch/, so use -ch!", visual: "a glowing camping flashlight or torch" },
+                    lunch: { group: "B", badge: "Ending -ch", rule: "Consonant 'n' comes before /ch/, so use -ch!", visual: "a packed school lunchbox" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word uses -tch because /ch/ comes right after 1 short vowel?", wordA: "patch", wordB: "peach", answer: "A", explanation: "'Patch' has a single short /ă/, so we spell /ch/ with -tch!" },
+                    { prompt: "Which word uses -ch (no t) because a consonant comes before /ch/?", wordA: "witch", wordB: "bench", answer: "B", explanation: "'Bench' has 'n' before /ch/, so no 't' is needed!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Lunch on the Bench",
+                        text: "Mitch checked his gold watch and sat on a park bench to eat lunch. He had a sweet peach and a quilt with a star patch."
+                    }
+                ]
+            },
+            "lesson-70": {
+                id: "lesson-70",
+                badge: "Lesson 70",
+                title: "Ending Pattern: dge /j/",
+                groupALabel: "✨ -dge After 1 Short Vowel",
+                groupADesc: "Use -dge to spell /j/ right after a single short vowel (bridge, badge, fudge).",
+                groupAExamples: "bridge, badge, fudge, fridge, hedge",
+                groupBLabel: "🔹 -ge After Long Vowels or Consonants",
+                groupBDesc: "Use -ge (without a d) after a long vowel or consonant (cage, page, orange).",
+                groupBExamples: "cage, page, stage, hinge",
+                groupAPool: ["bridge", "badge", "fudge", "fridge"],
+                groupBPool: ["cage", "page", "stage", "hinge"],
+                words: {
+                    bridge: { group: "A", badge: "Ending -dge", rule: "Short i + -dge spells /j/.", visual: "an arched wooden bridge over a stream" },
+                    badge: { group: "A", badge: "Ending -dge", rule: "Short a + -dge spells /j/.", visual: "a shiny gold star sheriff badge" },
+                    fudge: { group: "A", badge: "Ending -dge", rule: "Short u + -dge spells /j/.", visual: "a square piece of chocolate fudge" },
+                    fridge: { group: "A", badge: "Ending -dge", rule: "Short i + -dge spells /j/.", visual: "a kitchen refrigerator" },
+                    cage: { group: "B", badge: "Ending -ge", rule: "Long a + -ge spells /j/.", visual: "a cozy birdcage" },
+                    page: { group: "B", badge: "Ending -ge", rule: "Long a + -ge spells /j/.", visual: "a page of a storybook" },
+                    stage: { group: "B", badge: "Ending -ge", rule: "Long a + -ge spells /j/.", visual: "a theater stage with red curtains" },
+                    hinge: { group: "B", badge: "Ending -ge", rule: "Consonant 'n' + -ge spells /j/.", visual: "a metal door hinge" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word uses -dge right after a single short vowel?", wordA: "badge", wordB: "cage", answer: "A", explanation: "'Badge' has a short /ă/, so /j/ is spelled -dge!" },
+                    { prompt: "Which word uses -ge (without d) after a long vowel?", wordA: "bridge", wordB: "stage", answer: "B", explanation: "'Stage' has a long /ā/, so it only needs -ge!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Fudge by the Bridge",
+                        text: "Madge wore her shiny star badge as she walked across the wooden bridge. She opened the fridge and found a plate of chocolate fudge!"
+                    }
+                ]
+            },
+            "lesson-71": {
+                id: "lesson-71",
+                badge: "Lesson 71",
+                title: "Ending Patterns Review: tch & dge",
+                groupALabel: "✨ -tch /ch/ Words",
+                groupADesc: "Spells /ch/ after a single short vowel.",
+                groupAExamples: "hatch, sketch, pitcher, catcher",
+                groupBLabel: "✨ -dge /j/ Words",
+                groupBDesc: "Spells /j/ after a single short vowel.",
+                groupBExamples: "wedge, hedgehog, badger, lodge",
+                groupAPool: ["hatch", "sketch", "pitcher", "catcher"],
+                groupBPool: ["wedge", "hedgehog", "badger", "lodge"],
+                words: {
+                    hatch: { group: "A", badge: "Ending -tch", rule: "Short a + -tch spells /ch/.", visual: "a baby chick hatching out of a cracked egg" },
+                    sketch: { group: "A", badge: "Ending -tch", rule: "Short e + -tch spells /ch/.", visual: "a pencil sketch drawing on a pad" },
+                    pitcher: { group: "A", badge: "Medial -tch-", rule: "Short i + -tch + -er.", visual: "a glass pitcher filled with lemonade" },
+                    catcher: { group: "A", badge: "Medial -tch-", rule: "Short a + -tch + -er.", visual: "a baseball catcher's mitt and ball" },
+                    wedge: { group: "B", badge: "Ending -dge", rule: "Short e + -dge spells /j/.", visual: "a yellow wedge of cheese" },
+                    hedgehog: { group: "B", badge: "Medial -dge-", rule: "Short e + -dge in hedge-hog.", visual: "a cute spiky brown hedgehog" },
+                    badger: { group: "B", badge: "Medial -dge-", rule: "Short a + -dge + -er.", visual: "a black and white striped badger" },
+                    lodge: { group: "B", badge: "Ending -dge", rule: "Short o + -dge spells /j/.", visual: "a snowy mountain wooden lodge" }
+                },
+                minimalPairs: [
+                    { prompt: "Which word ends with the /ch/ sound spelled -tch?", wordA: "hatch", wordB: "wedge", answer: "A", explanation: "'Hatch' ends with -tch /ch/!" },
+                    { prompt: "Which animal word has -dge /j/ in the middle?", wordA: "pitcher", wordB: "hedgehog", answer: "B", explanation: "'Hedge-hog' has -dge right after short e!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "The Hedgehog's Sketch",
+                        text: "A cute hedgehog sat near a mountain lodge with a wedge of cheese. He watched a tiny chick hatch while drawing a pencil sketch!"
+                    }
+                ]
+            },
+            "lesson-72": {
+                id: "lesson-72",
+                badge: "Lesson 72",
+                title: "Long VCC (-ild, -old, -ind, -olt, -ost)",
+                groupALabel: "✨ Long I Teams (-ild, -ind)",
+                groupADesc: "Even though two consonants follow, 'i' says its LONG name /ī/!",
+                groupAExamples: "child, wild, kind, wind (verb), find",
+                groupBLabel: "✨ Long O Teams (-old, -olt, -ost)",
+                groupBDesc: "Even though two consonants follow, 'o' says its LONG name /ō/!",
+                groupBExamples: "gold, cold, bolt, ghost, post",
+                groupAPool: ["child", "wild", "find", "kind"],
+                groupBPool: ["gold", "cold", "bolt", "ghost"],
+                words: {
+                    child: { group: "A", badge: "Long VCC (-ild)", rule: "-ild makes a long /ī/ sound!", visual: "a smiling child waving hello" },
+                    wild: { group: "A", badge: "Long VCC (-ild)", rule: "-ild makes a long /ī/ sound!", visual: "a colorful patch of wild flowers" },
+                    find: { group: "A", badge: "Long VCC (-ind)", rule: "-ind makes a long /ī/ sound!", visual: "a magnifying glass searching a treasure map" },
+                    kind: { group: "A", badge: "Long VCC (-ind)", rule: "-ind makes a long /ī/ sound!", visual: "two friends sharing a heart sticker" },
+                    gold: { group: "B", badge: "Long VCC (-old)", rule: "-old makes a long /ō/ sound!", visual: "a shiny pot of gold coins" },
+                    cold: { group: "B", badge: "Long VCC (-old)", rule: "-old makes a long /ō/ sound!", visual: "a snowman with a blue scarf" },
+                    bolt: { group: "B", badge: "Long VCC (-olt)", rule: "-olt makes a long /ō/ sound!", visual: "a bright yellow lightning bolt" },
+                    ghost: { group: "B", badge: "Long VCC (-ost)", rule: "-ost makes a long /ō/ sound!", visual: "a cute friendly white cartoon ghost" }
+                },
+                minimalPairs: [
+                    { prompt: "Which Long VCC word has a LONG /ō/ sound?", wordA: "child", wordB: "gold", answer: "B", explanation: "'-old' makes a long /ō/ sound in 'gold'!" },
+                    { prompt: "Which Long VCC word has a LONG /ī/ sound?", wordA: "wild", wordB: "bolt", answer: "A", explanation: "'-ild' makes a long /ī/ sound in 'wild'!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Gold in the Cold",
+                        text: "On a cold day, a kind child went to find a hidden pot of gold. A bright lightning bolt flashed past a friendly white ghost!"
+                    }
+                ]
+            },
+            "lesson-73": {
+                id: "lesson-73",
+                badge: "Lesson 73",
+                title: "y as a Vowel: y /ī/",
+                groupALabel: "✨ One-Syllable Words Ending in y /ī/",
+                groupADesc: "At the end of a short one-syllable word, 'y' acts as a vowel and says LONG I (/ī/)!",
+                groupAExamples: "fly, sky, cry, spy, dry, fry",
+                groupBLabel: "🦋 Longer Words Ending in y /ī/",
+                groupBDesc: "Some two- or three-syllable words also end with y saying /ī/!",
+                groupBExamples: "butterfly, firefly, July, supply",
+                groupAPool: ["fly", "sky", "spy", "fry"],
+                groupBPool: ["butterfly", "firefly", "July", "supply"],
+                words: {
+                    fly: { group: "A", badge: "y /ī/ (1-Syllable)", rule: "Ending y says long /ī/ in 1-syllable words!", visual: "a cute little buzzing housefly" },
+                    sky: { group: "A", badge: "y /ī/ (1-Syllable)", rule: "Ending y says long /ī/ in 'sky'.", visual: "a bright blue sky with fluffy white clouds" },
+                    spy: { group: "A", badge: "y /ī/ (1-Syllable)", rule: "Ending y says long /ī/ in 'spy'.", visual: "a detective looking through binoculars" },
+                    fry: { group: "A", badge: "y /ī/ (1-Syllable)", rule: "Ending y says long /ī/ in 'fry'.", visual: "a frying pan cooking an egg" },
+                    butterfly: { group: "B", badge: "y /ī/ (Compound)", rule: "Ends with 'fly' saying long /ī/!", visual: "a colorful orange monarch butterfly" },
+                    firefly: { group: "B", badge: "y /ī/ (Compound)", rule: "Ends with 'fly' saying long /ī/!", visual: "a glowing yellow firefly bug" },
+                    July: { group: "B", badge: "y /ī/ (2-Syllable)", rule: "Ju-ly ends with y saying long /ī/!", visual: "a calendar page showing July with fireworks" },
+                    supply: { group: "B", badge: "y /ī/ (2-Syllable)", rule: "Sup-ply ends with y saying long /ī/!", visual: "a caddy filled with school pencils and crayons" }
+                },
+                minimalPairs: [
+                    { prompt: "In which word does final 'y' say LONG I (/ī/)?", wordA: "sky", wordB: "happy", answer: "A", explanation: "'Sky' is a 1-syllable word, so y says /ī/!" },
+                    { prompt: "Which compound word ends with 'y' saying /ī/?", wordA: "puppy", wordB: "butterfly", answer: "B", explanation: "'But-ter-fly' ends with the /ī/ sound!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Fireflies in July",
+                        text: "In warm July, we looked up at the dark blue sky. A glowing firefly and a bright butterfly began to fly right past our supply box!"
+                    }
+                ]
+            },
+            "lesson-74": {
+                id: "lesson-74",
+                badge: "Lesson 74",
+                title: "y as a Vowel: y /ē/",
+                groupALabel: "🐰 Twin Consonant + y /ē/",
+                groupADesc: "At the end of a two-syllable word, 'y' says LONG E (/ē/)!",
+                groupAExamples: "happy, bunny, puppy, sunny, berry",
+                groupBLabel: "🐴 Open/Closed + y /ē/",
+                groupBDesc: "Two-syllable words ending in y /ē/ with open or closed first syllables.",
+                groupBExamples: "pony, baby, lady, party",
+                groupAPool: ["happy", "bunny", "puppy", "sunny"],
+                groupBPool: ["pony", "baby", "berry", "party"],
+                words: {
+                    happy: { group: "A", badge: "y /ē/ (hap-py)", rule: "2-syllable word ending in y = long /ē/!", visual: "a big cheerful yellow smiley face" },
+                    bunny: { group: "A", badge: "y /ē/ (bun-ny)", rule: "2-syllable word ending in y = long /ē/!", visual: "a cute hopping brown bunny" },
+                    puppy: { group: "A", badge: "y /ē/ (pup-py)", rule: "2-syllable word ending in y = long /ē/!", visual: "a playful spotted puppy" },
+                    sunny: { group: "A", badge: "y /ē/ (sun-ny)", rule: "2-syllable word ending in y = long /ē/!", visual: "a bright smiling sun with rays" },
+                    pony: { group: "B", badge: "y /ē/ (po-ny)", rule: "Open 'po-' + '-ny' saying /ē/!", visual: "a cute brown pony with a flowing mane" },
+                    baby: { group: "B", badge: "y /ē/ (ba-by)", rule: "Open 'ba-' + '-by' saying /ē/!", visual: "a cute baby rattle and bottle" },
+                    berry: { group: "B", badge: "y /ē/ (ber-ry)", rule: "Ends with y saying long /ē/!", visual: "a plump red strawberry" },
+                    party: { group: "B", badge: "y /ē/ (par-ty)", rule: "Ends with y saying long /ē/!", visual: "colorful party balloons and confetti" }
+                },
+                minimalPairs: [
+                    { prompt: "In which word does final 'y' say LONG E (/ē/)?", wordA: "puppy", wordB: "spy", answer: "A", explanation: "'Pup-py' has 2 syllables, so final y says /ē/!" },
+                    { prompt: "Which word starts with an OPEN syllable AND ends with y /ē/?", wordA: "pony", wordB: "bunny", answer: "A", explanation: "'Po-ny' has open 'po-' (/ō/) and ending '-ny' (/ē/)!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "A Sunny Pony Party",
+                        text: "On a bright sunny day, a happy bunny and a little puppy went to a party. A cute brown pony ate a sweet red berry!"
+                    }
+                ]
+            },
+            "lesson-75": {
+                id: "lesson-75",
+                badge: "Lesson 75",
+                title: "Consonant -le Syllables",
+                groupALabel: "🍎 Closed First Syllable + C-le",
+                groupADesc: "Count back 3 letters from the end! A closed first syllable keeps a short vowel (ap-ple, tur-tle, puz-zle).",
+                groupAExamples: "apple, turtle, puzzle, bubble, castle",
+                groupBLabel: "🍁 Open First Syllable + C-le",
+                groupBDesc: "When the first syllable ends in a vowel, it stays OPEN and LONG (ta-ble, ma-ple, ea-gle)!",
+                groupBExamples: "table, maple, beetle, eagle",
+                groupAPool: ["apple", "turtle", "puzzle", "bubble"],
+                groupBPool: ["table", "maple", "beetle", "eagle"],
+                words: {
+                    apple: { group: "A", badge: "C-le (ap-ple)", rule: "Count back 3: ap-ple (closed short a).", visual: "a shiny red apple with a green leaf" },
+                    turtle: { group: "A", badge: "C-le (tur-tle)", rule: "Count back 3: tur-tle.", visual: "a friendly green sea or land turtle" },
+                    puzzle: { group: "A", badge: "C-le (puz-zle)", rule: "Count back 3: puz-zle (closed short u).", visual: "colorful interlocking jigsaw puzzle pieces" },
+                    bubble: { group: "A", badge: "C-le (bub-ble)", rule: "Count back 3: bub-ble (closed short u).", visual: "floating shiny soap bubbles" },
+                    table: { group: "B", badge: "Open + C-le (ta-ble)", rule: "Count back 3: ta-ble (open long a!).", visual: "a round wooden kitchen table" },
+                    maple: { group: "B", badge: "Open + C-le (ma-ple)", rule: "Count back 3: ma-ple (open long a!).", visual: "an orange autumn maple leaf" },
+                    beetle: { group: "B", badge: "Open + C-le (bee-tle)", rule: "Count back 3: bee-tle (long e!).", visual: "a shiny blue-green garden beetle" },
+                    eagle: { group: "B", badge: "Open + C-le (ea-gle)", rule: "Count back 3: ea-gle (long e!).", visual: "a soaring brown and white bald eagle" }
+                },
+                minimalPairs: [
+                    { prompt: "Which Consonant -le word has a LONG vowel in its first syllable?", wordA: "apple", wordB: "table", answer: "B", explanation: "'Ta-ble' has an open first syllable 'ta-' (/ā/)!" },
+                    { prompt: "Which Consonant -le word has a SHORT vowel in its first syllable?", wordA: "puzzle", wordB: "maple", answer: "A", explanation: "'Puz-zle' closes its first syllable with z!" }
+                ],
+                fallbackStories: [
+                    {
+                        title: "Puzzle on the Table",
+                        text: "A little green turtle sat beside a wooden table under a maple tree. He ate a red apple, blew a giant bubble, and finished a jigsaw puzzle!"
+                    }
+                ]
+            }
+        };
+
+        let savedApiKey = "";
+        let savedRoster = ["Liam", "Emma", "Noah", "Olivia", "Ava", "Mason", "Sophia", "Lucas"];
+        try {
+            savedApiKey = localStorage.getItem('ufli_gemini_api_key') || "";
+            const storedRoster = localStorage.getItem('ufli_student_roster');
+            if (storedRoster) {
+                const parsedRoster = JSON.parse(storedRoster);
+                if (Array.isArray(parsedRoster) && parsedRoster.length > 0) {
+                    savedRoster = parsedRoster;
+                }
+            }
+        } catch (e) {}
+
+        const state = {
+            currentLessonId: "lesson-62",
+            activeTab: "hunt",
+            userApiKey: savedApiKey,
+            targetWords: [],
+            foundWords: new Set(),
+            detectiveMode: false,
+            detectiveFound: new Set(),
+            selectedWord: "",
+            showSoundBoxes: true,
+            currentStory: {
+                title: "",
+                text: "",
+                questions: [],
+                scrambleSentence: ""
+            },
+            scrambleTiles: [],
+            builtIndices: [],
+            strokes: [],
+            currentStroke: null,
+            penColor: '#ef4444',
+            isDrawing: false,
+            fontSize: 21,
+            isSpeaking: false,
+            isGenerating: false,
+            lastThemeIndex: -1,
+            sortWords: [],
+            selectedSortWord: null,
+            pairIndex: 0,
+            wheelRotation: 0,
+            spinStars: 0,
+            studentRoster: savedRoster,
+            usedStudents: new Set()
+        };
+
+        // =========================================================================
+        // LESSON SWITCHING & ROUND GENERATION
+        // =========================================================================
+        function getActiveLesson() {
+            return UFLI_LESSONS[state.currentLessonId] || UFLI_LESSONS["lesson-62"];
+        }
+
+        function switchActivityTab(tabName) {
+            state.activeTab = tabName;
+            document.querySelectorAll('.activity-panel').forEach(panel => {
+                panel.classList.add('hidden');
+            });
+            const activePanel = document.getElementById(`tabPanel-${tabName}`);
+            if (activePanel) activePanel.classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-indigo-950', 'shadow-sm');
+                btn.classList.add('bg-white/15', 'hover:bg-white/25', 'text-white');
+            });
+            const activeBtn = document.getElementById(`tabBtn-${tabName}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white/15', 'hover:bg-white/25', 'text-white');
+                activeBtn.classList.add('bg-white', 'text-indigo-950', 'shadow-sm');
+            }
+
+            if (tabName === 'hunt') {
+                setTimeout(resizeCanvas, 30);
+            }
+        }
+
+        function populateLessonDropdown() {
+            const select = document.getElementById('lessonSelect');
+            if (!select) return;
+            select.innerHTML = '';
+            Object.values(UFLI_LESSONS).forEach(lesson => {
+                const opt = document.createElement('option');
+                opt.value = lesson.id;
+                opt.textContent = `${lesson.badge}: ${lesson.title.split('(')[0].trim()}`;
+                if (lesson.id === state.currentLessonId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function switchLesson(lessonId) {
+            if (!UFLI_LESSONS[lessonId]) return;
+            state.currentLessonId = lessonId;
+            state.pairIndex = 0;
+            updateHeaderAndGuideUI();
+            handleRedo();
+        }
+
+        function updateHeaderAndGuideUI() {
+            const lesson = getActiveLesson();
+            const titleEl = document.getElementById('headerLessonTitle');
+            if (titleEl) titleEl.textContent = `${lesson.badge} • ${lesson.title}`;
+
+            const guideContent = document.getElementById('phonicsGuideContent');
+            if (guideContent) {
+                guideContent.innerHTML = `
+                    <div class="bg-white/10 rounded-2xl p-3 border border-white/15">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-sky-300">${lesson.groupALabel}</span>
+                        <p class="text-xs sm:text-sm text-white/95 mt-1">${lesson.groupADesc}</p>
+                        <p class="text-xs text-amber-300 font-bold mt-1">Examples: ${lesson.groupAExamples}</p>
+                    </div>
+                    <div class="bg-white/10 rounded-2xl p-3 border border-white/15">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-rose-300">${lesson.groupBLabel}</span>
+                        <p class="text-xs sm:text-sm text-white/95 mt-1">${lesson.groupBDesc}</p>
+                        <p class="text-xs text-amber-300 font-bold mt-1">Examples: ${lesson.groupBExamples}</p>
+                    </div>
+                `;
+            }
+
+            const bucketATitle = document.getElementById('bucketATitle');
+            const bucketAExamples = document.getElementById('bucketAExamples');
+            const bucketBTitle = document.getElementById('bucketBTitle');
+            const bucketBExamples = document.getElementById('bucketBExamples');
+            if (bucketATitle) bucketATitle.textContent = lesson.groupALabel;
+            if (bucketAExamples) bucketAExamples.textContent = lesson.groupAExamples;
+            if (bucketBTitle) bucketBTitle.textContent = lesson.groupBLabel;
+            if (bucketBExamples) bucketBExamples.textContent = lesson.groupBExamples;
+        }
+
+        function togglePhonicsGuide() {
+            const panel = document.getElementById('phonicsGuidePanel');
+            if (panel) panel.classList.toggle('hidden');
+        }
+
+        function showToast(message, icon = "🎉") {
+            const banner = document.getElementById('toastBanner');
+            const textEl = document.getElementById('toastText');
+            const iconEl = document.getElementById('toastIcon');
+            if (!banner || !textEl || !iconEl) return;
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            banner.classList.remove('hidden');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 3600);
+        }
+
+        // =========================================================================
+        // PRINT WORKSHEET, STUDENT PICKER & MODALS
+        // =========================================================================
+        function prepareAndPrintWorksheet() {
+            const lesson = getActiveLesson();
+            const headerEl = document.getElementById('printLessonHeader');
+            const sceneImgEl = document.getElementById('printSceneImg');
+            const activeImgEl = document.getElementById('sceneImage');
+            const wordListEl = document.getElementById('printWordList');
+            const storyTitleEl = document.getElementById('printStoryTitle');
+            const storyTextEl = document.getElementById('printStoryText');
+
+            if (headerEl) headerEl.textContent = `UFLI ${lesson.badge}: ${lesson.title}`;
+            if (sceneImgEl && activeImgEl && activeImgEl.src) {
+                sceneImgEl.src = activeImgEl.src;
+            }
+            if (wordListEl) {
+                wordListEl.innerHTML = state.targetWords.map(w => `
+                    <li class="flex items-center gap-2">
+                        <span class="inline-block w-5 h-5 border-2 border-black rounded"></span>
+                        <span>${w}</span>
+                    </li>
+                `).join('');
+            }
+            if (storyTitleEl) storyTitleEl.textContent = state.currentStory.title || `${lesson.badge} Decodable Story`;
+            if (storyTextEl) storyTextEl.textContent = state.currentStory.text || "";
+
+            setTimeout(() => {
+                window.print();
+            }, 150);
+        }
+
+        function openStudentPickerModal() {
+            const modal = document.getElementById('studentPickerModal');
+            const input = document.getElementById('studentRosterInput');
+            if (input) input.value = state.studentRoster.join(', ');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeStudentPickerModal() {
+            const modal = document.getElementById('studentPickerModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveStudentRoster() {
+            const input = document.getElementById('studentRosterInput');
+            if (!input) return;
+            const names = input.value
+                .split(/[\n,]+/)
+                .map(s => s.trim())
+                .filter(Boolean);
+            if (names.length === 0) {
+                showToast("Please enter at least one student name!", "⚠️");
+                return;
+            }
+            state.studentRoster = names;
+            state.usedStudents.clear();
+            try {
+                localStorage.setItem('ufli_student_roster', JSON.stringify(names));
+            } catch (e) {}
+            showToast(`Saved ${names.length} students to your class roster!`, "✅");
+        }
+
+        function pickRandomStudent() {
+            if (!state.studentRoster || state.studentRoster.length === 0) return;
+            let available = state.studentRoster.filter(name => !state.usedStudents.has(name));
+            if (available.length === 0) {
+                state.usedStudents.clear();
+                available = [...state.studentRoster];
+            }
+            const chosen = available[Math.floor(Math.random() * available.length)];
+            state.usedStudents.add(chosen);
+
+            const display = document.getElementById('pickedStudentDisplay');
+            if (display) {
+                display.textContent = `🌟 ${chosen}! 🌟`;
+                display.classList.remove('animate-pop');
+                void display.offsetWidth;
+                display.classList.add('animate-pop');
+            }
+            speakText(`${chosen}, come on up to the board!`);
+        }
+
+        function openCustomLessonModal() {
+            const modal = document.getElementById('customLessonModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeCustomLessonModal() {
+            const modal = document.getElementById('customLessonModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function openApiKeyModal() {
+            const modal = document.getElementById('apiKeyModal');
+            const input = document.getElementById('apiKeyInput');
+            if (input) input.value = state.userApiKey || "";
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeApiKeyModal() {
+            const modal = document.getElementById('apiKeyModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const input = document.getElementById('apiKeyInput');
+            if (!input) return;
+            state.userApiKey = input.value.trim();
+            try {
+                localStorage.setItem('ufli_gemini_api_key', state.userApiKey);
+            } catch (e) {}
+            updateApiKeyButtonBadge();
+            closeApiKeyModal();
+            showToast("API key saved! Generating fresh scene & story...", "🔑");
+            handleRedo();
+        }
+
+        function clearSavedApiKey() {
+            state.userApiKey = "";
+            try {
+                localStorage.removeItem('ufli_gemini_api_key');
+            } catch (e) {}
+            const input = document.getElementById('apiKeyInput');
+            if (input) input.value = "";
+            updateApiKeyButtonBadge();
+            closeApiKeyModal();
+            showToast("Cleared saved API key.", "🧹");
+        }
+
+        function updateApiKeyButtonBadge() {
+            const btn = document.getElementById('apiKeyBtn');
+            if (!btn) return;
+            if (state.userApiKey) {
+                btn.classList.add('ring-2', 'ring-emerald-300');
+            } else {
+                btn.classList.remove('ring-2', 'ring-emerald-300');
+            }
+        }
+
+        function closeCelebration() {
+            const modal = document.getElementById('celebrationModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // =========================================================================
+        // GEMINI API HELPERS & FALLBACK ILLUSTRATION / STORY ENGINE
+        // =========================================================================
+        async function fetchWithBackoff(url, options, maxRetries = 3) {
+            let delay = 800;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    if (response.status === 400 || response.status === 401 || response.status === 403) {
+                        const errBody = await response.text();
+                        throw new Error(`API Auth/Request Error (${response.status}): ${errBody}`);
+                    }
+                } catch (err) {
+                    if (attempt === maxRetries - 1) throw err;
+                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+            throw new Error("Request failed after retries.");
+        }
+
+        function pickRoundWords(lesson) {
+            const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+            const poolA = shuffle(lesson.groupAPool || []);
+            const poolB = shuffle(lesson.groupBPool || []);
+            const picked = [...poolA.slice(0, 3), ...poolB.slice(0, 3)];
+            if (picked.length < 6) {
+                const allKeys = shuffle(Object.keys(lesson.words || {}));
+                for (const k of allKeys) {
+                    if (!picked.includes(k) && picked.length < 6) picked.push(k);
+                }
+            }
+            return shuffle(picked);
+        }
+
+        async function handleRedo() {
+            if (state.isGenerating) return;
+            state.isGenerating = true;
+
+            const redoIcon = document.getElementById('redoIcon');
+            if (redoIcon) redoIcon.classList.add('animate-spin');
+
+            const lesson = getActiveLesson();
+            state.targetWords = pickRoundWords(lesson);
+            state.foundWords.clear();
+            state.detectiveFound.clear();
+            state.strokes = [];
+            clearCanvas();
+
+            renderWordChecklist();
+            resetInspector();
+            renderFluencyWheel();
+            initBoardSort();
+            renderMinimalPair();
+
+            const imgLoader = document.getElementById('imageLoader');
+            const sceneImg = document.getElementById('sceneImage');
+            const storyLoader = document.getElementById('storyLoader');
+            const storyContainer = document.getElementById('storyContainer');
+
+            if (imgLoader) imgLoader.classList.remove('hidden');
+            if (sceneImg) sceneImg.classList.add('hidden');
+            if (storyLoader) storyLoader.classList.remove('hidden');
+            if (storyContainer) storyContainer.classList.add('hidden');
+
+            try {
+                await Promise.all([
+                    generateSceneIllustration(lesson, state.targetWords),
+                    generateDecodableStoryAndQuiz(lesson, state.targetWords)
+                ]);
+            } finally {
+                state.isGenerating = false;
+                if (redoIcon) redoIcon.classList.remove('animate-spin');
+            }
+        }
+
+        async function generateSceneIllustration(lesson, words) {
+            const imgLoader = document.getElementById('imageLoader');
+            const sceneImg = document.getElementById('sceneImage');
+
+            let themeIdx = Math.floor(Math.random() * SCENE_THEMES.length);
+            if (themeIdx === state.lastThemeIndex) themeIdx = (themeIdx + 1) % SCENE_THEMES.length;
+            state.lastThemeIndex = themeIdx;
+            const theme = SCENE_THEMES[themeIdx];
+
+            const visualDescriptions = words.map(w => {
+                const info = lesson.words[w];
+                return info ? info.visual : `a clear depiction of ${w}`;
+            }).join("; ");
+
+            const prompt = `Create a warm, colorful, kid-friendly children's storybook hidden-object illustration set in ${theme}. Naturally weave these 6 distinct visual items into the scene so young students can spot and circle them: ${visualDescriptions}. Style: cheerful hand-painted children's book illustration, bright lighting, clear outlines, rich details. CRITICAL RULE: Do NOT draw ANY text, letters, words, numbers, labels, arrows, or counting markers anywhere in the image.`;
+
+            try {
+                const apiKey = state.userApiKey || "";
+                const modelName = apiKey ? "gemini-2.5-flash-image" : "gemini-3.1-flash-image";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+                const data = await fetchWithBackoff(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseModalities: ["IMAGE"] }
+                    })
+                }, 2);
+
+                const parts = data?.candidates?.[0]?.content?.parts || [];
+                const imgPart = parts.find(p => p.inlineData && p.inlineData.data);
+                if (imgPart) {
+                    const mime = imgPart.inlineData.mimeType || "image/png";
+                    sceneImg.src = `data:${mime};base64,${imgPart.inlineData.data}`;
+                    sceneImg.onload = () => {
+                        if (imgLoader) imgLoader.classList.add('hidden');
+                        sceneImg.classList.remove('hidden');
+                        resizeCanvas();
+                    };
+                    return;
+                }
+            } catch (err) {
+                console.warn("Using offline fallback illustration:", err.message);
+            }
+
+            // Fallback colorful illustrated SVG scene if offline or API quota reached
+            sceneImg.src = buildFallbackSvgScene(words);
+            sceneImg.onload = () => {
+                if (imgLoader) imgLoader.classList.add('hidden');
+                sceneImg.classList.remove('hidden');
+                resizeCanvas();
+            };
+        }
+
+        function buildFallbackSvgScene(words) {
+            const emojiMap = {
+                home: "🏡", page: "📖", late: "⏰", state: "🗺️", snake: "🐍", cake: "🎂",
+                have: "🍎", done: "🍽️", live: "🪺", none: "🫙", some: "🍓", glove: "🧤",
+                dove: "🕊️", give: "🎁", love: "❤️", boxes: "📦", foxes: "🦊", dishes: "🍽️",
+                benches: "🪑", peaches: "🍑", brushes: "🖌️", box: "📦", fox: "🦊", dish: "🥣",
+                bench: "🪑", peach: "🍑", brush: "🖌️", jumped: "🐸", baked: "🍪", played: "⚽",
+                splashed: "🦆", planted: "🌱", painted: "🎨", landed: "🦋", melted: "🍦",
+                jumping: "🪢", fishing: "🎣", camping: "⛺", floating: "⛵", baking: "🧁",
+                smiling: "🌞", running: "🐕", swimming: "🐠", tent: "⛺", frog: "🐸",
+                drum: "🥁", lamp: "🛋️", robot: "🤖", tiger: "🐯", tulip: "🌷", spider: "🕷️",
+                rabbit: "🐇", muffin: "🧁", kitten: "🐱", puppet: "🧦", basket: "🧺",
+                picnic: "🍉", pumpkin: "🎃", magnet: "🧲", music: "🎸", acorn: "🌰",
+                lemon: "🍋", wagon: "🛒", camel: "🐪", cabin: "🏡", witch: "🧙‍♀️", patch: "👖",
+                pitch: "⚾", watch: "⌚", torch: "🔦", lunch: "🥪", bridge: "🌉", badge: "🛡️",
+                fudge: "🍫", fridge: "🧊", cage: "🐦", stage: "🎭", hinge: "🚪", hatch: "🐣",
+                sketch: "✏️", pitcher: "🫗", catcher: "🧤", wedge: "🧀", hedgehog: "🦔",
+                badger: "🦡", lodge: "🏔️", child: "🧒", wild: "🌼", find: "🔍", kind: "💝",
+                gold: "🪙", cold: "⛄", bolt: "⚡", ghost: "👻", fly: "🪰", sky: "☁️",
+                spy: "🔭", fry: "🍳", butterfly: "🦋", firefly: "✨", July: "🎆", supply: "🖍️",
+                happy: "😄", bunny: "🐰", puppy: "🐶", sunny: "☀️", pony: "🐴", baby: "🍼",
+                berry: "🍓", party: "🎈", apple: "🍎", turtle: "🐢", puzzle: "🧩", bubble: "🫧",
+                table: "🪑", maple: "🍁", beetle: "🪲", eagle: "🦅"
+            };
+            const spots = [
+                { x: 145, y: 155 }, { x: 400, y: 135 }, { x: 655, y: 165 },
+                { x: 165, y: 410 }, { x: 410, y: 430 }, { x: 645, y: 405 }
+            ];
+            const itemsSvg = words.slice(0, 6).map((w, idx) => {
+                const pos = spots[idx];
+                const icon = emojiMap[w] || "⭐";
+                return `
+                    <g transform="translate(${pos.x}, ${pos.y})">
+                        <circle cx="0" cy="0" r="56" fill="#ffffff" fill-opacity="0.88" stroke="#bae6fd" stroke-width="5"/>
+                        <text x="0" y="20" font-size="62" text-anchor="middle">${icon}</text>
+                    </g>
+                `;
+            }).join('');
+
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+                <defs>
+                    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#bae6fd"/>
+                        <stop offset="100%" stop-color="#e0f2fe"/>
+                    </linearGradient>
+                    <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#bbf7d0"/>
+                        <stop offset="100%" stop-color="#86efac"/>
+                    </linearGradient>
+                </defs>
+                <rect width="800" height="365" fill="url(#skyGrad)"/>
+                <circle cx="705" cy="85" r="46" fill="#fde047"/>
+                <rect y="365" width="800" height="235" fill="url(#grassGrad)"/>
+                <path d="M0,450 Q400,390 800,465 L800,600 L0,600 Z" fill="#fef3c7" opacity="0.55"/>
+                ${itemsSvg}
+            </svg>`;
+            return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        }
+
+        async function generateDecodableStoryAndQuiz(lesson, words) {
+            const storyLoader = document.getElementById('storyLoader');
+            const storyContainer = document.getElementById('storyContainer');
+
+            const prompt = `You are a reading specialist writing a decodable story for 1st/2nd graders practicing UFLI ${lesson.badge}: ${lesson.title}.
+Write a fun, cohesive 4-to-6 sentence decodable story that naturally includes these target words: ${words.join(', ')}.
+Also provide 2 kid-friendly multiple-choice comprehension questions about the story, and 1 clean sentence from the story to use for a sentence scramble game.
+Return ONLY valid JSON with this exact schema:
+{
+  "title": "Short Catchy Title",
+  "text": "Full decodable story paragraph.",
+  "questions": [
+    { "q": "Question 1?", "options": ["Option A", "Option B", "Option C"], "answerIndex": 0 },
+    { "q": "Question 2?", "options": ["Option A", "Option B", "Option C"], "answerIndex": 1 }
+  ],
+  "scrambleSentence": "One clear sentence from the story."
+}`;
+
+            try {
+                const apiKey = state.userApiKey || "";
+                const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+                const data = await fetchWithBackoff(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                }, 2);
+
+                const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (rawText) {
+                    const parsed = JSON.parse(rawText);
+                    if (parsed && parsed.text) {
+                        state.currentStory = {
+                            title: parsed.title || `${lesson.badge} Story`,
+                            text: parsed.text,
+                            questions: Array.isArray(parsed.questions) && parsed.questions.length > 0 ? parsed.questions : buildFallbackQuestions(parsed.text),
+                            scrambleSentence: parsed.scrambleSentence || parsed.text.split(/[.!?]/)[0].trim() + "."
+                        };
+                        renderStoryAndActivities();
+                        if (storyLoader) storyLoader.classList.add('hidden');
+                        if (storyContainer) storyContainer.classList.remove('hidden');
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn("Using fallback story:", err.message);
+            }
+
+            const fb = (lesson.fallbackStories && lesson.fallbackStories[0]) || {
+                title: `${lesson.badge} Adventure`,
+                text: `Today our class worked hard to read ${words.join(', ')}. We spotted every single word in the big picture!`
+            };
+            state.currentStory = {
+                title: fb.title,
+                text: fb.text,
+                questions: buildFallbackQuestions(fb.text, words),
+                scrambleSentence: fb.text.split(/[.!?]/)[0].trim() + "."
+            };
+            renderStoryAndActivities();
+            if (storyLoader) storyLoader.classList.add('hidden');
+            if (storyContainer) storyContainer.classList.remove('hidden');
+        }
+
+        function buildFallbackQuestions(storyText, words = []) {
+            const firstWord = words[0] || state.targetWords[0] || "story";
+            return [
+                {
+                    q: `Which UFLI lesson word appeared in our picture and story?`,
+                    options: [firstWord, "astronaut", "submarine"],
+                    answerIndex: 0
+                },
+                {
+                    q: `What should careful readers do when they see a tricky word?`,
+                    options: ["Skip the whole page", "Look at the vowel pattern and sound boxes", "Close the book"],
+                    answerIndex: 1
+                }
+            ];
+        }
+
+        async function buildCustomLessonWithGemini() {
+            const num = (document.getElementById('customLessonNum')?.value || "").trim();
+            const skill = (document.getElementById('customLessonSkill')?.value || "").trim();
+            const rawWords = (document.getElementById('customLessonWords')?.value || "").trim();
+
+            if (!num || !skill) {
+                showToast("Please enter both a Lesson # and a Phonics Skill!", "⚠️");
+                return;
+            }
+
+            const btn = document.getElementById('buildCustomLessonBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>⏳</span><span>Building Lesson ${num}...</span>`;
+            }
+
+            const customId = `custom-${num.replace(/\s+/g, '-').toLowerCase()}`;
+            const userWords = rawWords ? rawWords.split(',').map(w => w.trim()).filter(Boolean) : [];
+
+            const prompt = `Create a UFLI phonics lesson pack for Lesson ${num}: ${skill}.
+${userWords.length ? `Use these focus words: ${userWords.join(', ')}.` : "Choose 6 concrete, easily pictureable words that fit this phonics skill (3 in Group A, 3 in Group B)."}
+Return ONLY valid JSON matching:
+{
+  "badge": "Lesson ${num}",
+  "title": "${skill}",
+  "groupALabel": "✨ Pattern A Label",
+  "groupADesc": "Short kid-friendly rule for Pattern A.",
+  "groupAExamples": "word1, word2, word3",
+  "groupBLabel": "🔹 Pattern B Label",
+  "groupBDesc": "Short kid-friendly rule for Pattern B.",
+  "groupBExamples": "word4, word5, word6",
+  "groupAPool": ["word1", "word2", "word3"],
+  "groupBPool": ["word4", "word5", "word6"],
+  "words": {
+    "word1": { "group": "A", "badge": "Pattern A", "rule": "Decoding tip", "visual": "clear visual description for a kids illustration" }
+  },
+  "minimalPairs": [
+    { "prompt": "Which word fits Pattern A?", "wordA": "word1", "wordB": "word4", "answer": "A", "explanation": "Short explanation." }
+  ]
+}`;
+
+            try {
+                const apiKey = state.userApiKey || "";
+                const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+                const data = await fetchWithBackoff(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                }, 2);
+
+                const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    UFLI_LESSONS[customId] = {
+                        id: customId,
+                        badge: parsed.badge || `Lesson ${num}`,
+                        title: parsed.title || skill,
+                        groupALabel: parsed.groupALabel || `✨ ${skill} (Set A)`,
+                        groupADesc: parsed.groupADesc || `Words practicing ${skill}.`,
+                        groupAExamples: parsed.groupAExamples || (parsed.groupAPool || []).join(', '),
+                        groupBLabel: parsed.groupBLabel || `🔹 ${skill} (Set B)`,
+                        groupBDesc: parsed.groupBDesc || `More words practicing ${skill}.`,
+                        groupBExamples: parsed.groupBExamples || (parsed.groupBPool || []).join(', '),
+                        groupAPool: parsed.groupAPool || userWords.slice(0, 3),
+                        groupBPool: parsed.groupBPool || userWords.slice(3, 6),
+                        words: parsed.words || {},
+                        minimalPairs: parsed.minimalPairs || [
+                            { prompt: `Spot the ${skill} word!`, wordA: (parsed.groupAPool || ["cat"])[0], wordB: "the", answer: "A", explanation: "Great job!" }
+                        ],
+                        fallbackStories: [
+                            {
+                                title: `Lesson ${num}: ${skill}`,
+                                text: `Today we practiced reading ${(parsed.groupAPool || userWords).join(', ')} in our UFLI lesson!`
+                            }
+                        ]
+                    };
+
+                    state.currentLessonId = customId;
+                    populateLessonDropdown();
+                    updateHeaderAndGuideUI();
+                    closeCustomLessonModal();
+                    showToast(`Loaded Lesson ${num}: ${skill}!`, "✨");
+                    handleRedo();
+                }
+            } catch (err) {
+                showToast("Could not build custom lesson right now. Check your API key or try again.", "⚠️");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>✨</span><span>Generate Lesson Pack</span>`;
+                }
+            }
+        }
+
+        // =========================================================================
+        // TAB 1: WORD CHECKLIST, ELKONIN SOUND BOXES & CANVAS DRAWING
+        // =========================================================================
+        function renderWordChecklist() {
+            const container = document.getElementById('wordChecklist');
+            const counter = document.getElementById('foundCounter');
+            if (!container) return;
+
+            const lesson = getActiveLesson();
+            if (counter) counter.textContent = `${state.foundWords.size} / ${state.targetWords.length} Found`;
+
+            container.innerHTML = state.targetWords.map(word => {
+                const isFound = state.foundWords.has(word);
+                const info = lesson.words[word] || { group: "A" };
+                const pillColor = info.group === "B"
+                    ? "border-rose-300 bg-rose-50/90 text-rose-950"
+                    : "border-sky-300 bg-white text-indigo-950";
+
+                return `
+                    <div class="flex items-center justify-between gap-1 px-2.5 py-2 rounded-xl border-2 ${isFound ? 'bg-emerald-100 border-emerald-400 text-emerald-950' : pillColor} shadow-sm transition">
+                        <button onclick="inspectWord('${word}')" class="flex-1 text-left font-extrabold text-sm sm:text-base truncate hover:underline">
+                            ${word}
+                        </button>
+                        <button onclick="toggleWordFound('${word}')" class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold ${isFound ? 'bg-emerald-500 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}" title="Mark word found">
+                            ${isFound ? '✓' : '○'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleWordFound(word) {
+            if (state.foundWords.has(word)) {
+                state.foundWords.delete(word);
+            } else {
+                state.foundWords.add(word);
+                inspectWord(word);
+                if (state.foundWords.size === state.targetWords.length && state.targetWords.length > 0) {
+                    const modal = document.getElementById('celebrationModal');
+                    if (modal) modal.classList.remove('hidden');
+                }
+            }
+            renderWordChecklist();
+        }
+
+        function resetInspector() {
+            state.selectedWord = "";
+            const wordEl = document.getElementById('inspectorWord');
+            const badgeEl = document.getElementById('inspectorBadge');
+            const noteEl = document.getElementById('inspectorNote');
+            const boxesEl = document.getElementById('soundBoxesContainer');
+            const speakBtn = document.getElementById('speakWordBtn');
+            const mapBtn = document.getElementById('toggleMapBtn');
+
+            if (wordEl) wordEl.textContent = "Tap any word!";
+            if (badgeEl) badgeEl.textContent = "Sound Box & Word Spotlight";
+            if (noteEl) noteEl.textContent = "Click any word card above to see its Elkonin Sound Boxes, Heart Parts ❤️, and phonics rule!";
+            if (boxesEl) boxesEl.classList.add('hidden');
+            if (speakBtn) speakBtn.classList.add('hidden');
+            if (mapBtn) mapBtn.classList.add('hidden');
+        }
+
+        function inspectWord(word) {
+            state.selectedWord = word;
+            const lesson = getActiveLesson();
+            const info = lesson.words[word] || {
+                group: "A",
+                badge: lesson.badge,
+                rule: `Practice blending each sound in "${word}".`
+            };
+
+            const wordEl = document.getElementById('inspectorWord');
+            const badgeEl = document.getElementById('inspectorBadge');
+            const noteEl = document.getElementById('inspectorNote');
+            const speakBtn = document.getElementById('speakWordBtn');
+            const mapBtn = document.getElementById('toggleMapBtn');
+
+            if (wordEl) wordEl.textContent = word;
+            if (badgeEl) {
+                badgeEl.textContent = info.badge;
+                badgeEl.className = info.group === "B"
+                    ? "text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-200 text-rose-950"
+                    : "text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-200 text-indigo-900";
+            }
+            if (noteEl) noteEl.textContent = info.rule;
+            if (speakBtn) speakBtn.classList.remove('hidden');
+            if (mapBtn) mapBtn.classList.remove('hidden');
+
+            renderSoundBoxes(word, info.group === "B");
+            speakText(word);
+        }
+
+        function toggleSoundBoxMode() {
+            state.showSoundBoxes = !state.showSoundBoxes;
+            if (state.selectedWord) {
+                const lesson = getActiveLesson();
+                const info = lesson.words[state.selectedWord] || { group: "A" };
+                renderSoundBoxes(state.selectedWord, info.group === "B");
+            }
+        }
+
+        function segmentWordIntoGraphemes(word) {
+            const lower = word.toLowerCase();
+            // Split common digraphs/trigraphs/suffixes into Elkonin grapheme tiles
+            const pattern = /(tch|dge|ing|igh|sh|ch|th|wh|ph|ck|qu|ee|ea|ai|ay|oa|ow|oo|ar|or|er|ir|ur|le|[a-z])/g;
+            const matches = lower.match(pattern);
+            return matches || lower.split('');
+        }
+
+        function renderSoundBoxes(word, isHeartWord) {
+            const container = document.getElementById('soundBoxesContainer');
+            if (!container) return;
+            if (!state.showSoundBoxes) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            const tiles = segmentWordIntoGraphemes(word);
+            const vowels = new Set(['a', 'e', 'i', 'o', 'u', 'y', 'ee', 'ea', 'ai', 'ay', 'oa', 'ow', 'oo', 'igh']);
+
+            container.innerHTML = tiles.map((grapheme, idx) => {
+                const isVowel = vowels.has(grapheme);
+                const isSilentE = idx === tiles.length - 1 && grapheme === 'e' && tiles.length > 2;
+                const showHeart = isHeartWord && (isVowel || isSilentE);
+
+                return `
+                    <button onclick="speakText('${word}')" class="relative min-w-[38px] h-11 px-2 rounded-xl border-2 ${isVowel ? 'border-amber-400 bg-amber-50 text-amber-950' : 'border-indigo-300 bg-sky-50 text-indigo-950'} font-extrabold text-lg flex items-center justify-center shadow-sm hover:scale-105 transition">
+                        ${showHeart ? '<span class="absolute -top-2.5 text-xs">❤️</span>' : ''}
+                        <span class="${isSilentE ? 'opacity-55 underline decoration-dotted' : ''}">${grapheme}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 0.92;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function speakCurrentWord() {
+            if (state.selectedWord) speakText(state.selectedWord);
+        }
+
+        // Drawing Canvas Controls
+        function setPenColor(color, btnEl) {
+            state.penColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-offset-2', 'ring-red-500', 'ring-blue-600', 'ring-green-600', 'ring-purple-600');
+            });
+            if (btnEl) btnEl.classList.add('ring-2', 'ring-offset-2', 'ring-slate-700');
+        }
+
+        function resizeCanvas() {
+            const canvas = document.getElementById('drawingCanvas');
+            const wrapper = document.getElementById('canvasWrapper');
+            if (!canvas || !wrapper) return;
+            const rect = wrapper.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            redrawStrokes();
+        }
+
+        function redrawStrokes() {
+            const canvas = document.getElementById('drawingCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 5;
+
+            const all = state.currentStroke ? [...state.strokes, state.currentStroke] : state.strokes;
+            all.forEach(stroke => {
+                if (!stroke || stroke.points.length === 0) return;
+                ctx.strokeStyle = stroke.color;
+                ctx.beginPath();
+                stroke.points.forEach((pt, idx) => {
+                    const x = pt.nx * canvas.width;
+                    const y = pt.ny * canvas.height;
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            });
+        }
+
+        function undoLastCircle() {
+            state.strokes.pop();
+            redrawStrokes();
+        }
+
+        function clearCanvas() {
+            state.strokes = [];
+            state.currentStroke = null;
+            redrawStrokes();
+        }
+
+        function initCanvasEvents() {
+            const canvas = document.getElementById('drawingCanvas');
+            if (!canvas) return;
+
+            const getNormCoords = e => {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    nx: (clientX - rect.left) / rect.width,
+                    ny: (clientY - rect.top) / rect.height
+                };
+            };
+
+            const startDraw = e => {
+                e.preventDefault();
+                state.isDrawing = true;
+                state.currentStroke = { color: state.penColor, points: [getNormCoords(e)] };
+                redrawStrokes();
+            };
+
+            const moveDraw = e => {
+                if (!state.isDrawing || !state.currentStroke) return;
+                e.preventDefault();
+                state.currentStroke.points.push(getNormCoords(e));
+                redrawStrokes();
+            };
+
+            const endDraw = () => {
+                if (!state.isDrawing) return;
+                state.isDrawing = false;
+                if (state.currentStroke && state.currentStroke.points.length > 1) {
+                    state.strokes.push(state.currentStroke);
+                }
+                state.currentStroke = null;
+                redrawStrokes();
+            };
+
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', moveDraw);
+            window.addEventListener('mouseup', endDraw);
+
+            canvas.addEventListener('touchstart', startDraw, { passive: false });
+            canvas.addEventListener('touchmove', moveDraw, { passive: false });
+            canvas.addEventListener('touchend', endDraw);
+        }
+
+        // =========================================================================
+        // TAB 2: STORY READER, STORY DETECTIVE, QUIZ & SENTENCE SCRAMBLE
+        // =========================================================================
+        function renderStoryAndActivities() {
+            const lesson = getActiveLesson();
+            const titleEl = document.getElementById('storyTitle');
+            const badgeEl = document.getElementById('storySubBadge');
+            if (titleEl) titleEl.textContent = state.currentStory.title;
+            if (badgeEl) badgeEl.textContent = `${lesson.badge} Decodable Reading`;
+
+            renderStoryBody();
+            renderComprehensionQuiz();
+            initSentenceScramble();
+        }
+
+        function renderStoryBody() {
+            const bodyEl = document.getElementById('storyBody');
+            if (!bodyEl) return;
+
+            const targetSet = new Set(state.targetWords.map(w => w.toLowerCase()));
+            const tokens = state.currentStory.text.split(/(\s+)/);
+
+            bodyEl.innerHTML = tokens.map(token => {
+                if (/^\s+$/.test(token)) return token;
+                const clean = token.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                const isTarget = targetSet.has(clean);
+
+                if (!isTarget) {
+                    return `<span class="cursor-pointer hover:text-indigo-600" onclick="speakText('${clean}')">${token}</span>`;
+                }
+
+                if (state.detectiveMode) {
+                    const uncovered = state.detectiveFound.has(clean);
+                    return `<button onclick="uncoverDetectiveWord('${clean}')" class="px-1.5 py-0.5 rounded-lg font-extrabold transition ${uncovered ? 'bg-amber-300 text-amber-950 shadow-sm' : 'hover:bg-slate-200/70 text-slate-800'}">${token}</button>`;
+                }
+
+                return `<button onclick="inspectAndSwitchOrSpeak('${clean}')" class="px-1.5 py-0.5 rounded-lg bg-amber-200/90 hover:bg-amber-300 text-indigo-950 font-extrabold border-b-2 border-amber-400 transition">${token}</button>`;
+            }).join('');
+        }
+
+        function inspectAndSwitchOrSpeak(word) {
+            speakText(word);
+            showToast(`Target Word: "${word}"`, "📖");
+        }
+
+        function toggleStoryDetective() {
+            state.detectiveMode = !state.detectiveMode;
+            state.detectiveFound.clear();
+            const btnText = document.getElementById('detectiveBtnText');
+            const banner = document.getElementById('detectiveBanner');
+            const scoreEl = document.getElementById('detectiveScore');
+
+            if (btnText) btnText.textContent = `Story Detective: ${state.detectiveMode ? 'ON' : 'OFF'}`;
+            if (banner) banner.classList.toggle('hidden', !state.detectiveMode);
+            if (scoreEl) scoreEl.textContent = `0 Words Uncovered`;
+            renderStoryBody();
+        }
+
+        function uncoverDetectiveWord(cleanWord) {
+            state.detectiveFound.add(cleanWord);
+            speakText(cleanWord);
+            const scoreEl = document.getElementById('detectiveScore');
+            if (scoreEl) scoreEl.textContent = `${state.detectiveFound.size} Words Uncovered`;
+            renderStoryBody();
+        }
+
+        function changeFontSize(delta) {
+            state.fontSize = Math.min(34, Math.max(16, state.fontSize + delta));
+            const bodyEl = document.getElementById('storyBody');
+            if (bodyEl) bodyEl.style.fontSize = `${state.fontSize}px`;
+        }
+
+        function toggleReadAloud() {
+            if (!('speechSynthesis' in window)) return;
+            const textEl = document.getElementById('readAloudText');
+            if (state.isSpeaking) {
+                window.speechSynthesis.cancel();
+                state.isSpeaking = false;
+                if (textEl) textEl.textContent = "Read to Me";
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(`${state.currentStory.title}. ${state.currentStory.text}`);
+            utter.rate = 0.9;
+            utter.onend = () => {
+                state.isSpeaking = false;
+                if (textEl) textEl.textContent = "Read to Me";
+            };
+            state.isSpeaking = true;
+            if (textEl) textEl.textContent = "Stop Reading";
+            window.speechSynthesis.speak(utter);
+        }
+
+        function renderComprehensionQuiz() {
+            const container = document.getElementById('comprehensionContainer');
+            if (!container) return;
+            const questions = state.currentStory.questions || [];
+            container.innerHTML = questions.map((item, qIdx) => `
+                <div class="p-3 rounded-2xl bg-sky-50/70 border border-sky-200">
+                    <p class="font-extrabold text-sm text-indigo-950 mb-2">${qIdx + 1}. ${item.q}</p>
+                    <div class="grid grid-cols-1 gap-1.5">
+                        ${(item.options || []).map((opt, oIdx) => `
+                            <button onclick="checkQuizAnswer(${qIdx}, ${oIdx}, ${item.answerIndex}, this)" class="quiz-opt-${qIdx} text-left px-3 py-2 rounded-xl bg-white hover:bg-indigo-50 border border-slate-200 font-bold text-xs sm:text-sm transition">
+                                ${opt}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function checkQuizAnswer(qIdx, chosenIdx, correctIdx, btnEl) {
+            document.querySelectorAll(`.quiz-opt-${qIdx}`).forEach(b => {
+                b.classList.remove('bg-emerald-100', 'border-emerald-500', 'bg-rose-100', 'border-rose-400');
+            });
+            if (chosenIdx === correctIdx) {
+                btnEl.classList.add('bg-emerald-100', 'border-emerald-500');
+                showToast("Great job! That matches the story!", "🌟");
+            } else {
+                btnEl.classList.add('bg-rose-100', 'border-rose-400');
+                showToast("Let's check the story and try again!", "🔎");
+            }
+        }
+
+        function initSentenceScramble() {
+            const raw = (state.currentStory.scrambleSentence || "We love to read our story.").trim();
+            const words = raw.split(/\s+/);
+            state.scrambleTiles = words.map((w, idx) => ({ id: idx, word: w }));
+            state.builtIndices = [];
+            renderSentenceScramble();
+        }
+
+        function resetSentenceScramble() {
+            state.builtIndices = [];
+            renderSentenceScramble();
+        }
+
+        function renderSentenceScramble() {
+            const builtZone = document.getElementById('builtSentenceZone');
+            const tilesZone = document.getElementById('scrambledTilesZone');
+            const feedback = document.getElementById('scrambleFeedback');
+            if (!builtZone || !tilesZone) return;
+
+            if (state.builtIndices.length === 0) {
+                builtZone.innerHTML = `<span class="text-xs font-bold text-amber-700/70">Tap words below to build the sentence...</span>`;
+            } else {
+                builtZone.innerHTML = state.builtIndices.map((tileIdx, pos) => {
+                    const tile = state.scrambleTiles[tileIdx];
+                    return `<button onclick="removeScrambleWord(${pos})" class="px-3 py-1.5 rounded-xl bg-amber-400 text-amber-950 font-extrabold text-sm shadow-sm">${tile.word}</button>`;
+                }).join('');
+            }
+
+            const shuffled = [...state.scrambleTiles].sort((a, b) => ((a.id * 7 + 3) % 11) - ((b.id * 7 + 3) % 11));
+            tilesZone.innerHTML = shuffled.map(tile => {
+                const used = state.builtIndices.includes(tile.id);
+                return `<button ${used ? 'disabled' : ''} onclick="pickScrambleWord(${tile.id})" class="px-3 py-1.5 rounded-xl border-2 font-extrabold text-sm transition ${used ? 'opacity-30 bg-slate-100 border-slate-200' : 'bg-white hover:bg-amber-50 border-amber-300 text-slate-800 shadow-sm'}">${tile.word}</button>`;
+            }).join('');
+
+            if (feedback) {
+                if (state.builtIndices.length === state.scrambleTiles.length) {
+                    const builtText = state.builtIndices.map(i => state.scrambleTiles[i].word).join(' ');
+                    const targetText = state.scrambleTiles.map(t => t.word).join(' ');
+                    if (builtText === targetText) {
+                        feedback.textContent = "🎉 Awesome! You built the complete sentence!";
+                        feedback.className = "text-center text-xs font-extrabold text-emerald-900 bg-emerald-100 py-2 px-3 rounded-xl border border-emerald-300";
+                    } else {
+                        feedback.textContent = "Almost! Tap a word in the box above to swap the order.";
+                        feedback.className = "text-center text-xs font-extrabold text-amber-900 bg-amber-100 py-2 px-3 rounded-xl border border-amber-300";
+                    }
+                } else {
+                    feedback.textContent = "Remember: Sentences start with a capital letter and end with punctuation!";
+                    feedback.className = "text-center text-xs font-extrabold text-slate-500 bg-slate-50 py-2 px-3 rounded-xl border border-slate-200";
+                }
+            }
+        }
+
+        function pickScrambleWord(tileId) {
+            if (!state.builtIndices.includes(tileId)) {
+                state.builtIndices.push(tileId);
+                speakText(state.scrambleTiles[tileId].word);
+                renderSentenceScramble();
+            }
+        }
+
+        function removeScrambleWord(pos) {
+            state.builtIndices.splice(pos, 1);
+            renderSentenceScramble();
+        }
+
+        // =========================================================================
+        // TAB 3: FLUENCY SPINNER, PATTERN SORT & MINIMAL PAIR SHOWDOWN
+        // =========================================================================
+        function renderFluencyWheel() {
+            const svg = document.getElementById('spinnerWheelSvg');
+            if (!svg) return;
+            const words = state.targetWords.slice(0, 6);
+            const colors = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'];
+            const sliceAngle = 360 / words.length;
+
+            svg.innerHTML = words.map((word, idx) => {
+                const startRad = ((idx * sliceAngle - 90) * Math.PI) / 180;
+                const endRad = (((idx + 1) * sliceAngle - 90) * Math.PI) / 180;
+                const x1 = 100 + 95 * Math.cos(startRad);
+                const y1 = 100 + 95 * Math.sin(startRad);
+                const x2 = 100 + 95 * Math.cos(endRad);
+                const y2 = 100 + 95 * Math.sin(endRad);
+                const midAngle = idx * sliceAngle + sliceAngle / 2;
+                const midRad = ((midAngle - 90) * Math.PI) / 180;
+                const tx = 100 + 58 * Math.cos(midRad);
+                const ty = 100 + 58 * Math.sin(midRad);
+
+                return `
+                    <path d="M100,100 L${x1},${y1} A95,95 0 0,1 ${x2},${y2} Z" fill="${colors[idx % colors.length]}" stroke="#ffffff" stroke-width="2.5"/>
+                    <text x="${tx}" y="${ty}" fill="#ffffff" font-size="13" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midAngle}, ${tx}, ${ty})">${word}</text>
+                `;
+            }).join('');
+        }
+
+        function spinFluencyWheel() {
+            const svg = document.getElementById('spinnerWheelSvg');
+            const resultBox = document.getElementById('spinnerResultBox');
+            const starsBadge = document.getElementById('spinStarsBadge');
+            if (!svg || state.targetWords.length === 0) return;
+
+            const extraSpin = 720 + Math.floor(Math.random() * 360);
+            state.wheelRotation += extraSpin;
+            svg.style.transform = `rotate(${state.wheelRotation}deg)`;
+
+            const normalized = (360 - (state.wheelRotation % 360)) % 360;
+            const sliceAngle = 360 / state.targetWords.length;
+            const landedIndex = Math.floor(normalized / sliceAngle) % state.targetWords.length;
+            const landedWord = state.targetWords[landedIndex];
+
+            setTimeout(() => {
+                state.spinStars += 1;
+                if (starsBadge) starsBadge.textContent = `⭐ ${state.spinStars} Stars`;
+                if (resultBox) {
+                    resultBox.innerHTML = `
+                        <p class="text-xs font-extrabold text-indigo-950">Read Aloud: <span class="text-lg text-indigo-600 underline">${landedWord}</span></p>
+                        <button onclick="speakText('${landedWord}')" class="mt-1 px-3 py-1 rounded-lg bg-amber-300 text-amber-950 text-xs font-extrabold">🔊 Check Sound</button>
+                    `;
+                }
+            }, 2250);
+        }
+
+        function initBoardSort() {
+            const lesson = getActiveLesson();
+            state.sortWords = state.targetWords.map(w => ({
+                word: w,
+                group: (lesson.words[w] && lesson.words[w].group) || "A",
+                placed: null
+            }));
+            state.selectedSortWord = state.sortWords[0]?.word || null;
+            renderBoardSort();
+        }
+
+        function renderBoardSort() {
+            const bank = document.getElementById('sortWordBank');
+            const bucketA = document.getElementById('bucketAItems');
+            const bucketB = document.getElementById('bucketBItems');
+            if (!bank || !bucketA || !bucketB) return;
+
+            const unplaced = state.sortWords.filter(item => !item.placed);
+            if (unplaced.length === 0) {
+                bank.innerHTML = `<span class="text-xs font-extrabold text-emerald-700">🎉 All words sorted! Click "New Words" to play again!</span>`;
+            } else {
+                bank.innerHTML = unplaced.map(item => {
+                    const selected = state.selectedSortWord === item.word;
+                    return `<button onclick="selectSortWord('${item.word}')" class="px-3 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm border-2 transition ${selected ? 'bg-purple-600 text-white border-purple-800 scale-105 shadow' : 'bg-white text-slate-800 border-slate-300 hover:bg-purple-50'}">${item.word}</button>`;
+                }).join('');
+            }
+
+            bucketA.innerHTML = state.sortWords
+                .filter(i => i.placed === 'groupA')
+                .map(i => `<span class="px-2 py-0.5 rounded-lg bg-sky-200 text-sky-950 font-extrabold text-xs">${i.word}</span>`)
+                .join('');
+
+            bucketB.innerHTML = state.sortWords
+                .filter(i => i.placed === 'groupB')
+                .map(i => `<span class="px-2 py-0.5 rounded-lg bg-rose-200 text-rose-950 font-extrabold text-xs">${i.word}</span>`)
+                .join('');
+        }
+
+        function selectSortWord(word) {
+            state.selectedSortWord = word;
+            speakText(word);
+            renderBoardSort();
+        }
+
+        function placeSortedWord(bucketKey) {
+            if (!state.selectedSortWord) return;
+            const entry = state.sortWords.find(i => i.word === state.selectedSortWord);
+            if (!entry) return;
+
+            const expectedBucket = entry.group === "B" ? "groupB" : "groupA";
+            if (bucketKey === expectedBucket) {
+                entry.placed = bucketKey;
+                const nextUnplaced = state.sortWords.find(i => !i.placed);
+                state.selectedSortWord = nextUnplaced ? nextUnplaced.word : null;
+                showToast(`Nice sort! "${entry.word}" belongs there!`, "✅");
+                renderBoardSort();
+            } else {
+                showToast(`Not quite! Check the vowel pattern in "${entry.word}" and try the other bucket.`, "🤔");
+            }
+        }
+
+        function renderMinimalPair() {
+            const lesson = getActiveLesson();
+            const pairs = lesson.minimalPairs || [];
+            if (pairs.length === 0) return;
+            const current = pairs[state.pairIndex % pairs.length];
+
+            const promptEl = document.getElementById('pairPromptText');
+            const cardsEl = document.getElementById('minimalPairCards');
+            const feedbackEl = document.getElementById('pairFeedbackBox');
+
+            if (promptEl) promptEl.textContent = current.prompt;
+            if (feedbackEl) {
+                feedbackEl.textContent = "Have two students race to tap the right card!";
+                feedbackEl.className = "text-center text-xs font-extrabold text-slate-500 bg-slate-50 py-2.5 px-3 rounded-xl border border-slate-200";
+            }
+            if (cardsEl) {
+                cardsEl.innerHTML = `
+                    <button onclick="checkMinimalPair('A')" class="p-4 rounded-2xl bg-sky-50 hover:bg-sky-100 active:scale-95 border-2 border-sky-300 font-extrabold text-xl sm:text-2xl text-indigo-950 shadow-sm transition">
+                        ${current.wordA}
+                    </button>
+                    <button onclick="checkMinimalPair('B')" class="p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 active:scale-95 border-2 border-amber-300 font-extrabold text-xl sm:text-2xl text-amber-950 shadow-sm transition">
+                        ${current.wordB}
+                    </button>
+                `;
+            }
+        }
+
+        function checkMinimalPair(choice) {
+            const lesson = getActiveLesson();
+            const pairs = lesson.minimalPairs || [];
+            if (pairs.length === 0) return;
+            const current = pairs[state.pairIndex % pairs.length];
+            const feedbackEl = document.getElementById('pairFeedbackBox');
+
+            speakText(choice === 'A' ? current.wordA : current.wordB);
+            if (choice === current.answer) {
+                if (feedbackEl) {
+                    feedbackEl.textContent = `🎉 Correct! ${current.explanation}`;
+                    feedbackEl.className = "text-center text-xs font-extrabold text-emerald-950 bg-emerald-100 py-2.5 px-3 rounded-xl border border-emerald-300";
+                }
+            } else {
+                if (feedbackEl) {
+                    feedbackEl.textContent = `Try again! ${current.explanation}`;
+                    feedbackEl.className = "text-center text-xs font-extrabold text-rose-950 bg-rose-100 py-2.5 px-3 rounded-xl border border-rose-300";
+                }
+            }
+        }
+
+        function nextMinimalPair() {
+            state.pairIndex += 1;
+            renderMinimalPair();
+        }
+
+        // =========================================================================
+        // INITIALIZATION ON WINDOW LOAD
+        // =========================================================================
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = function () {
+            populateLessonDropdown();
+            updateHeaderAndGuideUI();
+            updateApiKeyButtonBadge();
+            initCanvasEvents();
+            handleRedo();
+        };
+    </script>
+</body>
+</html>
